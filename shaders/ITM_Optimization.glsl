@@ -1,17 +1,18 @@
-//!HOOK PREKERNEL
+//!HOOK MAIN
 //!BIND HOOKED
-//!DESC ITM Gamma Correction
+//!DESC ITM Luma Correction
 
 vec4 hook() {
   vec4 color = HOOKED_tex(HOOKED_pos);
   const vec3 luma_coeff = vec3(0.2126, 0.7152, 0.0722);
 
   float luma = dot(color.rgb, luma_coeff);
+  vec3 chroma = color.rgb - luma;
 
-  float dark_mask = pow(1.0 - luma, 5);
-  vec3 corrected = pow(color.rgb, vec3(1.0 / (1.0 + dark_mask * 0.3)));
+  float luma_lift_factor = 2.0 * pow(1.0 - min(luma / 0.5, 1.0), 8.0);
+  luma *= 1.0 + luma_lift_factor;
 
-  return vec4(corrected, color.a);
+  return vec4(luma + chroma, color.a);
 }
 
 //!HOOK OUTPUT
@@ -31,5 +32,5 @@ vec4 hook() {
   float chroma_lift_factor = 0.6 * (sigmoid - min_sig) / (max_sig - min_sig);
   chroma *= 1.0 + chroma_lift_factor;
 
-  return clamp(vec4(luma + chroma, color.a), 0.0, 1.0);
+  return vec4(luma + chroma, color.a);
 }
