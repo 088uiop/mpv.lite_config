@@ -13,7 +13,7 @@ local function update()
     itm_state = itm == "auto" and sdr_to_hdr or itm == "yes"
     mp.set_property_native("inverse-tone-mapping", itm_state)
     mp.set_property_native("tone-mapping", itm_state and "bt.2446a" or "auto")
-    mp.commandv("script-message", "set_itm_sr", (itm_state and sdr_to_hdr) and "true" or "false")
+    mp.commandv("script-message", "use_itm_shaders", (itm_state and sdr_to_hdr) and "true" or "false")
 end
 
 mp.add_timeout(0.1, function()

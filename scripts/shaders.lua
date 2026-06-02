@@ -8,7 +8,7 @@ local shaders = {
     ravu = { quality = "_r2" }
 }
 
-local itm_sr = false
+local itm = false
 
 local function update_shaders(no_osd)
     mp.set_property_native("user-data/shaders", shaders)
@@ -47,7 +47,9 @@ local function update_shaders(no_osd)
             }
         end
     end
-    if itm_sr then table.insert(glsl_shaders, "~~/shaders/ITM_Saturation_Restore.glsl") end
+    if itm then
+        table.insert(glsl_shaders, "~~/shaders/ITM_Optimization.glsl")
+    end
     mp.set_property_native("glsl-shaders", glsl_shaders)
     if no_osd then return end
     mp.osd_message("着色器: " .. shaders.state)
@@ -69,7 +71,7 @@ mp.register_script_message("use_shader", function(shader)
     update_shaders()
 end)
 
-mp.register_script_message("set_itm_sr", function(state)
-    itm_sr = state == "true"
+mp.register_script_message("use_itm_shaders", function(state)
+    itm = state == "true"
     update_shaders(true)
 end)
