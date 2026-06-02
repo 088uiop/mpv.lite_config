@@ -1,4 +1,4 @@
-//!HOOK MAIN
+//!HOOK PREKERNEL
 //!BIND HOOKED
 //!DESC ITM Gamma Correction
 

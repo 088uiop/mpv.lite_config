@@ -47,9 +47,7 @@ local function update_shaders(no_osd)
             }
         end
     end
-    if itm then
-        table.insert(glsl_shaders, "~~/shaders/ITM_Optimization.glsl")
-    end
+    if itm then table.insert(glsl_shaders, "~~/shaders/ITM_Optimization.glsl") end
     mp.set_property_native("glsl-shaders", glsl_shaders)
     if no_osd then return end
     mp.osd_message("着色器: " .. shaders.state)
