@@ -21,6 +21,7 @@ local function update_shaders(no_osd)
             }
         elseif shaders.state == "Anime4K" then
             glsl_shaders = {
+                path .. "Anime4K_Clamp_Highlights.glsl",
                 path .. "Anime4K_Restore_CNN" .. shaders.anime4k.mode .. shaders.anime4k.quality .. ".glsl",
                 path .. "Anime4K_Upscale_CNN_x2" .. shaders.anime4k.quality .. ".glsl",
                 path .. "Anime4K_Auto.glsl"
