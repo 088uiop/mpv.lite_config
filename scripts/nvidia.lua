@@ -50,6 +50,9 @@ mp.add_timeout(0.1, function()
         hdr = true
         mp.commandv("vf", "add", "@NVhdr:d3d11vpp=nvidia-true-hdr")
     end
+    mp.observe_property("vid", "native", function() vid = mp.get_property_native("vid") or vid end)
+    mp.observe_property("gpu-context", "native", vsr_context_check)
+    mp.observe_property("gpu-api", "native", vsr_context_check)
 end)
 
 mp.register_event("file-loaded", function()
@@ -82,7 +85,3 @@ mp.add_key_binding(nil, "toggle-nv-hdr", function()
         mp.commandv("vf", "remove", "@NVhdr")
     end
 end)
-
-mp.observe_property("vid", "native", function() vid = mp.get_property_native("vid") or vid end)
-mp.observe_property("gpu-context", "native", vsr_context_check)
-mp.observe_property("gpu-api", "native", vsr_context_check)

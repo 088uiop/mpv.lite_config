@@ -1,7 +1,10 @@
 local mp = require 'mp'
 
-local itm = "auto"
-local itm_state = nil
+local itm = {
+    state = "auto",
+    enabled = false,
+    optimization = true
+}
 
 local function update()
     if Lock then return end
@@ -10,17 +13,20 @@ local function update()
     local vtp = mp.get_property_native("video-target-params")
     if not vp or not vtp then return end
     local sdr_to_hdr = vp.gamma ~= 'pq' and vtp.gamma == 'pq'
-    itm_state = itm == "auto" and sdr_to_hdr or itm == "yes"
-    mp.set_property_native("inverse-tone-mapping", itm_state)
-    mp.set_property_native("tone-mapping", itm_state and "bt.2446a" or "auto")
-    mp.commandv("script-message", "use_itm_shaders", (itm_state and sdr_to_hdr) and "true" or "false")
+    itm.enabled = itm.state == "auto" and sdr_to_hdr or itm.state == "yes"
+    mp.set_property_native("inverse-tone-mapping", itm.enabled)
+    mp.set_property_native("tone-mapping", itm.state and "bt.2446a" or "auto")
+    local use_itm_shaders = itm.optimization and itm.state and sdr_to_hdr
+    mp.commandv("script-message", "use_itm_shaders", use_itm_shaders and "true" or "false")
 end
 
 mp.add_timeout(0.1, function()
-    if mp.get_property_native("user-data/itm") then
-        itm = mp.get_property_native("user-data/itm")
+    local saved = mp.get_property_native("user-data/itm")
+    if saved then
+        itm = saved
+    else
+        mp.set_property_native("user-data/itm", itm)
     end
-    mp.set_property_native("user-data/itm", itm)
     mp.observe_property("inverse-tone-mapping", nil, update)
     mp.observe_property("video-params", nil, update)
     mp.observe_property("video-target-params", nil, update)
@@ -28,8 +34,15 @@ mp.add_timeout(0.1, function()
 end)
 
 mp.register_script_message("set_itm", function(state)
-    itm = state ~= "next" and state or (itm == "auto" and "no") or (itm == "no" and "yes") or "auto"
+    itm.state = state == "next" and ({ auto = "no", no = "yes", yes = "auto" })[itm.state] or state
     mp.set_property_native("user-data/itm", itm)
-    mp.osd_message("inverse-tone-mapping: " .. itm)
+    mp.osd_message("inverse-tone-mapping: " .. itm.state)
+    update()
+end)
+
+mp.register_script_message("toggle_itm_optimization", function()
+    itm.optimization = not itm.optimization
+    mp.set_property_native("user-data/itm", itm)
+    mp.osd_message("HDR逆色调映射-色彩优化: " .. (itm.optimization and "开" or "关"))
     update()
 end)

@@ -211,6 +211,7 @@ mp.add_timeout(0.1, function()
     VS_Checked = io.open(mp.command_native({ "expand-path", "~~/../VSPipe.exe" })) and true or false
     mp.set_property_native("user-data/vs_checked", VS_Checked)
     if not VS_Checked then
+        mp.msg.warn("未检测到VapourSynth，VS相关功能已禁用")
         mp.unregister_script_message("select_vs_mode")
         mp.unregister_script_message("vs_model_set")
         mp.remove_key_binding("vs_process_video")

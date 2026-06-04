@@ -200,6 +200,7 @@ mp.add_timeout(0.1, function()
     end
     updating_uosc_danmaku_data = true
     mp.command("script-message update_uosc_danmaku_data")
+    mp.observe_property("osd-dimensions", nil, smart_pad)
 end)
 
 mp.add_key_binding(nil, "toggle_ssdm", toggle_ssdm)
@@ -216,7 +217,6 @@ mp.register_script_message("uosc_danmaku_data_to_ssdm", function(data)
     updating_uosc_danmaku_data = false
 end)
 
-mp.observe_property("osd-dimensions", nil, smart_pad)
 mp.set_property_native("secondary-sub-ass-override", "yes")
 mp.register_event("file-loaded", assprocess)
 mp.register_event("shutdown", function() os.remove(ssdm_dm_path) end)
