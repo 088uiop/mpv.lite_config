@@ -1,5 +1,6 @@
 local mp = require 'mp'
 
+local vid = 1
 local vsr = false
 local hdr = false
 
@@ -36,6 +37,7 @@ local function vsr_context_check()
             mp.commandv("vf", "remove", "@NVhdr")
             mp.set_property_native("user-data/nv-hdr", hdr)
         end
+        mp.set_property_native("vid", vid)
     end
 end
 
@@ -81,5 +83,6 @@ mp.add_key_binding(nil, "toggle-nv-hdr", function()
     end
 end)
 
-mp.observe_property("gpu-context", nil, vsr_context_check)
-mp.observe_property("gpu-api", nil, vsr_context_check)
+mp.observe_property("vid", "native", function() vid = mp.get_property_native("vid") or vid end)
+mp.observe_property("gpu-context", "native", vsr_context_check)
+mp.observe_property("gpu-api", "native", vsr_context_check)
