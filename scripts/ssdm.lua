@@ -200,23 +200,20 @@ mp.add_timeout(0.1, function()
     end
     updating_uosc_danmaku_data = true
     mp.command("script-message update_uosc_danmaku_data")
+    mp.set_property_native("secondary-sub-ass-override", "yes")
     mp.observe_property("osd-dimensions", nil, smart_pad)
+    mp.register_event("file-loaded", assprocess)
+    mp.register_event("shutdown", function() os.remove(ssdm_dm_path) end)
+    mp.register_script_message("refresh_ssdm", assprocess)
+    mp.register_script_message("uosc_danmaku_data_to_ssdm", function(data)
+        uosc_danmaku_data = utils.parse_json(data)
+        updating_uosc_danmaku_data = false
+    end)
+    mp.add_key_binding(nil, "toggle_ssdm", toggle_ssdm)
+    mp.add_key_binding(nil, "toggle_pad", function()
+        auto_pad = not auto_pad
+        mp.set_property_native("user-data/ssdm-pad", auto_pad)
+        mp.osd_message("自动填充黑边: " .. (auto_pad and "开" or "关"))
+        if auto_pad then smart_pad() else mp.commandv("vf", "remove", "@Pad,@Format") end
+    end)
 end)
-
-mp.add_key_binding(nil, "toggle_ssdm", toggle_ssdm)
-mp.add_key_binding(nil, "toggle_pad", function()
-    auto_pad = not auto_pad
-    mp.set_property_native("user-data/ssdm-pad", auto_pad)
-    mp.osd_message("自动填充黑边: " .. (auto_pad and "开" or "关"))
-    if auto_pad then smart_pad() else mp.commandv("vf", "remove", "@Pad,@Format") end
-end)
-
-mp.register_script_message("refresh_ssdm", assprocess)
-mp.register_script_message("uosc_danmaku_data_to_ssdm", function(data)
-    uosc_danmaku_data = utils.parse_json(data)
-    updating_uosc_danmaku_data = false
-end)
-
-mp.set_property_native("secondary-sub-ass-override", "yes")
-mp.register_event("file-loaded", assprocess)
-mp.register_event("shutdown", function() os.remove(ssdm_dm_path) end)

@@ -220,32 +220,28 @@ mp.add_timeout(0.1, function()
     local saved = mp.get_property_native("user-data/vs")
     if saved then vs = saved end
     update_vs()
-end)
-
-mp.register_script_message("select_vs_mode", function(value)
-    if value == 'nil' then
+    mp.register_script_message("select_vs_mode", function(value)
+        if value == 'nil' then
+            clear()
+            vs.state = {}
+            mp.osd_message("VS: nil")
+        else
+            table.insert(vs.state, value)
+            local tags = {}
+            for _, mode in ipairs(vs.state) do table.insert(tags, vs.modes[mode].label) end
+            mp.osd_message("VS: " .. table.concat(tags, " >> "))
+        end
+        update_vs()
+    end)
+    mp.register_script_message("set_vs_mode", function(name, key, value)
+        if Watting then Watting:kill() end
+        Watting = mp.add_timeout(0.5, update_vs)
         clear()
-        vs.state = {}
-        mp.osd_message("VS: nil")
-    else
-        table.insert(vs.state, value)
-        local tags = {}
-        for _, mode in ipairs(vs.state) do table.insert(tags, vs.modes[mode].label) end
-        mp.osd_message("VS: " .. table.concat(tags, " >> "))
-    end
-    update_vs()
+        vs.modes[name].settings[key] = value
+    end)
+    mp.register_script_message("toggle_vs_preset", function()
+        vs.preset = not vs.preset
+        update_vs()
+    end)
+    mp.add_key_binding(nil, "vs_process_video", encode_video)
 end)
-
-mp.register_script_message("set_vs_mode", function(name, key, value)
-    if Watting then Watting:kill() end
-    Watting = mp.add_timeout(0.5, update_vs)
-    clear()
-    vs.modes[name].settings[key] = value
-end)
-
-mp.register_script_message("toggle_vs_preset", function()
-    vs.preset = not vs.preset
-    update_vs()
-end)
-
-mp.add_key_binding(nil, "vs_process_video", encode_video)

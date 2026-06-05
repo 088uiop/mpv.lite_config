@@ -56,19 +56,16 @@ mp.add_timeout(0.1, function()
     local saved = mp.get_property_native("user-data/shaders")
     if saved then shaders = saved end
     update_shaders(true)
-end)
-
-mp.register_script_message("set_shaders", function(shader, key, value)
-    shaders[shader][key] = value
-    update_shaders(true)
-end)
-
-mp.register_script_message("use_shader", function(shader)
-    shaders.state = shader
-    update_shaders()
-end)
-
-mp.register_script_message("use_itm_shaders", function(state)
-    itm = state == "true"
-    update_shaders(true)
+    mp.register_script_message("set_shaders", function(shader, key, value)
+        shaders[shader][key] = value
+        update_shaders(true)
+    end)
+    mp.register_script_message("use_shader", function(shader)
+        shaders.state = shader
+        update_shaders()
+    end)
+    mp.register_script_message("use_itm_shaders", function(state)
+        itm = state == "true"
+        update_shaders(true)
+    end)
 end)

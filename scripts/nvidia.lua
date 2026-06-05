@@ -53,35 +53,32 @@ mp.add_timeout(0.1, function()
     mp.observe_property("vid", "native", function() vid = mp.get_property_native("vid") or vid end)
     mp.observe_property("gpu-context", "native", vsr_context_check)
     mp.observe_property("gpu-api", "native", vsr_context_check)
-end)
-
-mp.register_event("file-loaded", function()
-    if not vsr then return end
-    toggle_vsr(false)
-    vsr_check()
-end)
-
-mp.add_key_binding(nil, "toggle-nv-vsr", function()
-    if mp.get_property_native("current-gpu-context") ~= 'd3d11' then return end
-    vsr = not vsr
-    mp.set_property_native("user-data/nv-vsr", vsr)
-    mp.osd_message("NV-VSR: " .. (vsr and "开" or "关"))
-    if vsr then
-        mp.commandv("vf", "pre", "@NVvsr:!d3d11vpp=format=nv12:scale=2:scaling-mode=nvidia")
+    mp.register_event("file-loaded", function()
+        if not vsr then return end
+        toggle_vsr(false)
         vsr_check()
-    else
-        mp.commandv("vf", "remove", "@NVvsr")
-    end
-end)
-
-mp.add_key_binding(nil, "toggle-nv-hdr", function()
-    if mp.get_property_native("current-gpu-context") ~= 'd3d11' then return end
-    hdr = not hdr
-    mp.set_property_native("user-data/nv-hdr", hdr)
-    mp.osd_message("NV-HDR: " .. (hdr and "开" or "关"))
-    if hdr then
-        mp.commandv("vf", "add", "@NVhdr:d3d11vpp=nvidia-true-hdr")
-    else
-        mp.commandv("vf", "remove", "@NVhdr")
-    end
+    end)
+    mp.add_key_binding(nil, "toggle-nv-vsr", function()
+        if mp.get_property_native("current-gpu-context") ~= 'd3d11' then return end
+        vsr = not vsr
+        mp.set_property_native("user-data/nv-vsr", vsr)
+        mp.osd_message("NV-VSR: " .. (vsr and "开" or "关"))
+        if vsr then
+            mp.commandv("vf", "pre", "@NVvsr:!d3d11vpp=format=nv12:scale=2:scaling-mode=nvidia")
+            vsr_check()
+        else
+            mp.commandv("vf", "remove", "@NVvsr")
+        end
+    end)
+    mp.add_key_binding(nil, "toggle-nv-hdr", function()
+        if mp.get_property_native("current-gpu-context") ~= 'd3d11' then return end
+        hdr = not hdr
+        mp.set_property_native("user-data/nv-hdr", hdr)
+        mp.osd_message("NV-HDR: " .. (hdr and "开" or "关"))
+        if hdr then
+            mp.commandv("vf", "add", "@NVhdr:d3d11vpp=nvidia-true-hdr")
+        else
+            mp.commandv("vf", "remove", "@NVhdr")
+        end
+    end)
 end)

@@ -204,55 +204,53 @@ local function update()
     })
 end
 
-mp.add_key_binding(nil, "chap_skip_toggle", chap_skip_toggle)
-mp.add_key_binding(nil, "import_files", function() import("Media") end)
-mp.add_key_binding(nil, "import_append_aid", function() import("AudioTrack") end)
-mp.add_key_binding(nil, "import_append_sid", function() import("Subtitle") end)
-mp.add_key_binding(nil, "speed_auto", speed_auto, { complex = true })
-mp.add_key_binding(nil, "speed_auto_bullet", speed_auto_bullet, { complex = true })
-mp.add_key_binding(nil, "trackA_back", function() track_seek("aid", -1) end)
-mp.add_key_binding(nil, "trackA_next", function() track_seek("aid", 1) end)
-mp.add_key_binding(nil, "trackS_back", function() track_seek("sid", -1) end)
-mp.add_key_binding(nil, "trackS_next", function() track_seek("sid", 1) end)
-mp.add_key_binding(nil, "r_video", r_video)
-mp.add_key_binding(nil, "l_video", l_video)
-mp.add_key_binding(nil, "update", update)
 
 mp.add_timeout(0.1, function()
     if mp.get_property_native("user-data/chap-skip") then
         chap_skip = true
         mp.observe_property("chapter-metadata/TITLE", "string", chap_skip_check)
     end
-end)
-
-if opt.press_speed then
-    local key = nil
-    local input_conf = io.open(config_dir .. '/input.conf', 'r')
-    if not input_conf then return nil end
-    for i in input_conf:lines() do
-        i = i:match('^%s*(.-)%s*$')
-        if i and not i:find('^#') and i ~= '' then
-            if i:find('seek') and not i:find('-') and not i:find("exact") then
-                key = i:match('^[%S]+') or i:match('^[%S]+%s+[%S]+')
-                break
+    if opt.press_speed then
+        local key = nil
+        local input_conf = io.open(config_dir .. '/input.conf', 'r')
+        if not input_conf then return nil end
+        for i in input_conf:lines() do
+            i = i:match('^%s*(.-)%s*$')
+            if i and not i:find('^#') and i ~= '' then
+                if i:find('seek') and not i:find('-') and not i:find("exact") then
+                    key = i:match('^[%S]+') or i:match('^[%S]+%s+[%S]+')
+                    break
+                end
             end
         end
+        input_conf:close()
+        mp.add_forced_key_binding(key, "speed_auto", speed_auto, { complex = true })
     end
-    input_conf:close()
-    mp.add_forced_key_binding(key, "speed_auto", speed_auto, { complex = true })
-end
-
-if opt.seek_vs_off then
-    mp.register_event("file-loaded", function() Init_seek = true end)
-    mp.observe_property("seeking", "bool", function(_, seeking)
-        if Init_seek then
-            Init_seek = false
-            return
-        end
-        if seeking then
-            pause_vs()
-        else
-            restore_vs()
-        end
-    end)
-end
+    if opt.seek_vs_off then
+        mp.register_event("file-loaded", function() Init_seek = true end)
+        mp.observe_property("seeking", "bool", function(_, seeking)
+            if Init_seek then
+                Init_seek = false
+                return
+            end
+            if seeking then
+                pause_vs()
+            else
+                restore_vs()
+            end
+        end)
+    end
+    mp.add_key_binding(nil, "chap_skip_toggle", chap_skip_toggle)
+    mp.add_key_binding(nil, "import_files", function() import("Media") end)
+    mp.add_key_binding(nil, "import_append_aid", function() import("AudioTrack") end)
+    mp.add_key_binding(nil, "import_append_sid", function() import("Subtitle") end)
+    mp.add_key_binding(nil, "speed_auto", speed_auto, { complex = true })
+    mp.add_key_binding(nil, "speed_auto_bullet", speed_auto_bullet, { complex = true })
+    mp.add_key_binding(nil, "trackA_back", function() track_seek("aid", -1) end)
+    mp.add_key_binding(nil, "trackA_next", function() track_seek("aid", 1) end)
+    mp.add_key_binding(nil, "trackS_back", function() track_seek("sid", -1) end)
+    mp.add_key_binding(nil, "trackS_next", function() track_seek("sid", 1) end)
+    mp.add_key_binding(nil, "r_video", r_video)
+    mp.add_key_binding(nil, "l_video", l_video)
+    mp.add_key_binding(nil, "update", update)
+end)

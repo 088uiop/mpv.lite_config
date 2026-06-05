@@ -140,8 +140,7 @@ mp.add_timeout(0.1, function()
         mp.set_property_native("user-data/opencc-mode", state)
     end
     convert_subtitles(mp.get_property_number("sid"))
+    mp.register_event("file-loaded", function() convert_subtitles(mp.get_property_number("sid")) end)
+    mp.register_script_message("opencc_set", function(v) set_convert_mode(tonumber(v)) end)
+    mp.add_key_binding(nil, "toggle-state", function() set_convert_mode((state + 1) % 3) end)
 end)
-
-mp.add_key_binding(nil, "toggle-state", function() set_convert_mode((state + 1) % 3) end)
-mp.register_script_message("opencc_set", function(v) set_convert_mode(tonumber(v)) end)
-mp.register_event("file-loaded", function() convert_subtitles(mp.get_property_number("sid")) end)
