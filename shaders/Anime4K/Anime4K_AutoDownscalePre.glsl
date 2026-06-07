@@ -23,12 +23,13 @@
 
 // For more information, please refer to <https://unlicense.org>
 
-//!DESC Anime4K-v4.0-Auto
+//!DESC Anime4K-v4.0-AutoDownscalePre
 //!HOOK MAIN
 //!BIND HOOKED
 //!BIND NATIVE
 //!WIDTH OUTPUT.w
 //!HEIGHT OUTPUT.h
+//!WHEN OUTPUT.w MAIN.w < OUTPUT.h MAIN.h < +
 
 vec4 hook() {
 	return HOOKED_tex(HOOKED_pos);
