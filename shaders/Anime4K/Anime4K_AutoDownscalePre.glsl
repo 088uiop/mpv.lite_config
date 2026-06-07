@@ -26,7 +26,6 @@
 //!DESC Anime4K-v4.0-AutoDownscalePre
 //!HOOK MAIN
 //!BIND HOOKED
-//!BIND NATIVE
 //!WIDTH OUTPUT.w
 //!HEIGHT OUTPUT.h
 //!WHEN OUTPUT.w MAIN.w < OUTPUT.h MAIN.h < +
