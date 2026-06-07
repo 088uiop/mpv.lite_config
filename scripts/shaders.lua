@@ -24,9 +24,11 @@ local function update_shaders(no_osd)
                 path .. "Anime4K_Clamp_Highlights.glsl",
                 path .. "Anime4K_Restore_CNN" .. shaders.anime4k.mode .. shaders.anime4k.quality .. ".glsl",
                 path .. "Anime4K_Upscale_CNN_x2" .. shaders.anime4k.quality .. ".glsl",
-                path .. "Anime4K_AutoDownscalePre.glsl"
             }
-            if shaders.anime4k.twice == "y" then glsl_shaders[5] = glsl_shaders[2] end
+            if shaders.anime4k.twice == "y" then
+                glsl_shaders[4] = path .. "Anime4K_AutoDownscalePre.glsl"
+                glsl_shaders[5] = path .. "Anime4K_Restore_CNN_Soft_M.glsl"
+            end
         elseif shaders.state == "CuNNy" then
             glsl_shaders = {
                 path .. "CuNNy" .. shaders.cunny.quality .. shaders.cunny.mode
