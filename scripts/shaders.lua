@@ -2,8 +2,9 @@ local mp = require 'mp'
 
 local shaders = {
     state = "nil",
-    anime4k = { twice = "n", quality = "_M", mode = "" },
-    cunny = { dp4a = "n", quality = "-3x12", mode = "-DS" },
+    anime4k = { quality = "_M", mode = "", order = "_RU" },
+    cunny = { quality = "-3x12", mode = "-DS", dp4a = "" },
+    fsrcnnx = { quality = "_8_0_4_1" },
     nnedi3 = { quality = "_nns32" },
     ravu = { quality = "_r2" }
 }
@@ -22,28 +23,28 @@ local function update_shaders(no_osd)
         elseif shaders.state == "Anime4K" then
             glsl_shaders = {
                 path .. "Anime4K_Clamp_Highlights.glsl",
-                path .. "Anime4K_Restore_CNN" .. shaders.anime4k.mode .. shaders.anime4k.quality .. ".glsl",
-                path .. "Anime4K_Upscale_CNN_x2" .. shaders.anime4k.quality .. ".glsl",
+                path .. "Anime4K" .. shaders.anime4k.order .. shaders.anime4k.mode .. shaders.anime4k.quality .. ".glsl",
+                path .. "Anime4K" .. shaders.anime4k.order .. shaders.anime4k.mode .. shaders.anime4k.quality .. ".glsl",
+                path .. "Anime4K_AutoScalePost" .. shaders.anime4k.mode .. ".glsl"
             }
-            if shaders.anime4k.twice == "y" then
-                glsl_shaders[4] = path .. "Anime4K_AutoDownscalePre.glsl"
-                glsl_shaders[5] = path .. "Anime4K_Restore_CNN_Soft_M.glsl"
-            end
         elseif shaders.state == "CuNNy" then
             glsl_shaders = {
-                path .. "CuNNy" .. shaders.cunny.quality .. shaders.cunny.mode
-                .. (shaders.cunny.dp4a == "y" and "-Q" or "") .. ".glsl"
+                path .. "CuNNy" .. shaders.cunny.quality .. shaders.cunny.mode .. shaders.cunny.dp4a .. ".glsl",
+                path .. "CuNNy" .. shaders.cunny.quality .. shaders.cunny.mode .. shaders.cunny.dp4a .. ".glsl"
             }
         elseif shaders.state == "FSRCNNX" then
             glsl_shaders = {
-                path .. "FSRCNNX_x2_16_0_4_1.glsl"
+                path .. "FSRCNNX_x2" .. shaders.fsrcnnx.quality .. ".glsl",
+                path .. "FSRCNNX_x2" .. shaders.fsrcnnx.quality .. ".glsl"
             }
         elseif shaders.state == "NNEDI3" then
             glsl_shaders = {
+                path .. "nnedi3" .. shaders.nnedi3.quality .. "_win8x4.glsl",
                 path .. "nnedi3" .. shaders.nnedi3.quality .. "_win8x4.glsl"
             }
         elseif shaders.state == "RAVU" then
             glsl_shaders = {
+                path .. "ravu" .. shaders.ravu.quality .. ".glsl",
                 path .. "ravu" .. shaders.ravu.quality .. ".glsl"
             }
         end
