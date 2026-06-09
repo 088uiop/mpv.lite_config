@@ -21,6 +21,53 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+//!DESC Anime4K-v4.0-De-Ring-Compute-Statistics
+//!HOOK MAIN
+//!BIND HOOKED
+//!SAVE STATSMAX
+//!COMPONENTS 1
+
+#define KERNELSIZE 5 //Kernel size, must be an positive odd integer.
+#define KERNELHALFSIZE 2 //Half of the kernel size without remainder. Must be equal to trunc(KERNELSIZE/2).
+
+float get_luma(vec4 rgba) {
+	return dot(vec4(0.299, 0.587, 0.114, 0.0), rgba);
+}
+
+vec4 hook() {
+
+	float gmax = 0.0;
+	
+	for (int i=0; i<KERNELSIZE; i++) {
+		float g = get_luma(MAIN_texOff(vec2(i - KERNELHALFSIZE, 0)));
+		
+		gmax = max(g, gmax);
+	}
+	
+	return vec4(gmax, 0.0, 0.0, 0.0);
+}
+//!DESC Anime4K-v4.0-De-Ring-Compute-Statistics
+//!HOOK MAIN
+//!BIND HOOKED
+//!BIND STATSMAX
+//!SAVE STATSMAX
+//!COMPONENTS 1
+
+#define KERNELSIZE 5 //Kernel size, must be an positive odd integer.
+#define KERNELHALFSIZE 2 //Half of the kernel size without remainder. Must be equal to trunc(KERNELSIZE/2).
+
+vec4 hook() {
+
+	float gmax = 0.0;
+	
+	for (int i=0; i<KERNELSIZE; i++) {
+		float g = STATSMAX_texOff(vec2(0, i - KERNELHALFSIZE)).x;
+		
+		gmax = max(g, gmax);
+	}
+	
+	return vec4(gmax, 0.0, 0.0, 0.0);
+}
 //!DESC Anime4K-v3.2-Upscale-CNN-x2-(L)-Conv-4x3x3x3
 //!HOOK MAIN
 //!BIND MAIN
@@ -466,7 +513,6 @@ vec4 hook() {
 //!WIDTH MAIN.w
 //!HEIGHT MAIN.h
 //!COMPONENTS 4
-//!WHEN OUTPUT.w MAIN.w / 1.200 > OUTPUT.h MAIN.h / 1.200 > *
 #define go_0(x_off, y_off) (MAIN_texOff(vec2(x_off, y_off)))
 vec4 hook() {
     vec4 result = mat4(-0.2676983, -0.1694746, 0.7231928, -0.050193843, 0.1850188, -0.4749505, 0.07632266, 0.17824799, 0.026348969, -0.213702, -0.16420218, -0.066780016, 0.0, 0.0, 0.0, 0.0) * go_0(-1.0, -1.0);
@@ -488,7 +534,6 @@ vec4 hook() {
 //!WIDTH MAIN.w
 //!HEIGHT MAIN.h
 //!COMPONENTS 4
-//!WHEN OUTPUT.w MAIN.w / 1.200 > OUTPUT.h MAIN.h / 1.200 > *
 #define go_0(x_off, y_off) (MAIN_texOff(vec2(x_off, y_off)))
 vec4 hook() {
     vec4 result = mat4(0.09844753, -0.19389127, 0.029695928, 0.3805915, 0.1353029, 0.027786473, 0.15621242, 0.09383762, -0.1097243, 0.021245124, -0.016402386, 0.09129394, 0.0, 0.0, 0.0, 0.0) * go_0(-1.0, -1.0);
@@ -510,7 +555,6 @@ vec4 hook() {
 //!SAVE conv2d_1_tf
 //!WIDTH conv2d_tf.w
 //!HEIGHT conv2d_tf.h
-//!WHEN OUTPUT.w MAIN.w / 1.200 > OUTPUT.h MAIN.h / 1.200 > *
 //!COMPONENTS 4
 #define go_0(x_off, y_off) (max((conv2d_tf_texOff(vec2(x_off, y_off))), 0.0))
 #define go_1(x_off, y_off) (max((conv2d_tf1_texOff(vec2(x_off, y_off))), 0.0))
@@ -563,7 +607,6 @@ vec4 hook() {
 //!SAVE conv2d_1_tf1
 //!WIDTH conv2d_tf.w
 //!HEIGHT conv2d_tf.h
-//!WHEN OUTPUT.w MAIN.w / 1.200 > OUTPUT.h MAIN.h / 1.200 > *
 //!COMPONENTS 4
 #define go_0(x_off, y_off) (max((conv2d_tf_texOff(vec2(x_off, y_off))), 0.0))
 #define go_1(x_off, y_off) (max((conv2d_tf1_texOff(vec2(x_off, y_off))), 0.0))
@@ -616,7 +659,6 @@ vec4 hook() {
 //!SAVE conv2d_2_tf
 //!WIDTH conv2d_1_tf.w
 //!HEIGHT conv2d_1_tf.h
-//!WHEN OUTPUT.w MAIN.w / 1.200 > OUTPUT.h MAIN.h / 1.200 > *
 //!COMPONENTS 4
 #define go_0(x_off, y_off) (max((conv2d_1_tf_texOff(vec2(x_off, y_off))), 0.0))
 #define go_1(x_off, y_off) (max((conv2d_1_tf1_texOff(vec2(x_off, y_off))), 0.0))
@@ -669,7 +711,6 @@ vec4 hook() {
 //!SAVE conv2d_2_tf1
 //!WIDTH conv2d_1_tf.w
 //!HEIGHT conv2d_1_tf.h
-//!WHEN OUTPUT.w MAIN.w / 1.200 > OUTPUT.h MAIN.h / 1.200 > *
 //!COMPONENTS 4
 #define go_0(x_off, y_off) (max((conv2d_1_tf_texOff(vec2(x_off, y_off))), 0.0))
 #define go_1(x_off, y_off) (max((conv2d_1_tf1_texOff(vec2(x_off, y_off))), 0.0))
@@ -722,7 +763,6 @@ vec4 hook() {
 //!SAVE conv2d_3_tf
 //!WIDTH conv2d_2_tf.w
 //!HEIGHT conv2d_2_tf.h
-//!WHEN OUTPUT.w MAIN.w / 1.200 > OUTPUT.h MAIN.h / 1.200 > *
 //!COMPONENTS 4
 #define go_0(x_off, y_off) (max((conv2d_2_tf_texOff(vec2(x_off, y_off))), 0.0))
 #define go_1(x_off, y_off) (max((conv2d_2_tf1_texOff(vec2(x_off, y_off))), 0.0))
@@ -775,7 +815,6 @@ vec4 hook() {
 //!SAVE conv2d_3_tf1
 //!WIDTH conv2d_2_tf.w
 //!HEIGHT conv2d_2_tf.h
-//!WHEN OUTPUT.w MAIN.w / 1.200 > OUTPUT.h MAIN.h / 1.200 > *
 //!COMPONENTS 4
 #define go_0(x_off, y_off) (max((conv2d_2_tf_texOff(vec2(x_off, y_off))), 0.0))
 #define go_1(x_off, y_off) (max((conv2d_2_tf1_texOff(vec2(x_off, y_off))), 0.0))
@@ -828,7 +867,6 @@ vec4 hook() {
 //!BIND conv2d_3_tf1
 //!SAVE MAIN
 //!WIDTH conv2d_3_tf.w
-//!WHEN OUTPUT.w MAIN.w / 1.200 > OUTPUT.h MAIN.h / 1.200 > *
 //!HEIGHT conv2d_3_tf.h
 #define go_0(x_off, y_off) (max((conv2d_3_tf_texOff(vec2(x_off, y_off))), 0.0))
 #define go_1(x_off, y_off) (max((conv2d_3_tf1_texOff(vec2(x_off, y_off))), 0.0))
@@ -873,4 +911,22 @@ vec4 hook() {
     result += mat4(0.0132598495, 0.01775289, 0.017206183, 0.0, 0.010604703, -0.007352816, -0.017301153, 0.0, 0.030967329, 0.027615465, 0.0145311365, 0.0, 0.008636854, -0.033379406, -0.042725433, 0.0) * go_3(1.0, 1.0);
     result += vec4(-0.0056639817, -0.0017339308, -0.0011913306, 0.0);
     return result + MAIN_tex(MAIN_pos);
+}
+//!DESC Anime4K-v4.0-De-Ring-Clamp
+//!HOOK MAIN
+//!BIND HOOKED
+//!BIND STATSMAX
+
+float get_luma(vec4 rgba) {
+	return dot(vec4(0.299, 0.587, 0.114, 0.0), rgba);
+}
+
+vec4 hook() {
+
+	float current_luma = get_luma(HOOKED_tex(HOOKED_pos));
+	float new_luma = min(current_luma, STATSMAX_tex(HOOKED_pos).x);
+	
+	//This trick is only possible if the inverse Y->RGB matrix has 1 for every row... (which is the case for BT.709)
+	//Otherwise we would need to convert RGB to YUV, modify Y then convert back to RGB.
+    return HOOKED_tex(HOOKED_pos) - (current_luma - new_luma); 
 }

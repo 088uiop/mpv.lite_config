@@ -21,6 +21,53 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+//!DESC Anime4K-v4.0-De-Ring-Compute-Statistics
+//!HOOK MAIN
+//!BIND HOOKED
+//!SAVE STATSMAX
+//!COMPONENTS 1
+
+#define KERNELSIZE 5 //Kernel size, must be an positive odd integer.
+#define KERNELHALFSIZE 2 //Half of the kernel size without remainder. Must be equal to trunc(KERNELSIZE/2).
+
+float get_luma(vec4 rgba) {
+	return dot(vec4(0.299, 0.587, 0.114, 0.0), rgba);
+}
+
+vec4 hook() {
+
+	float gmax = 0.0;
+	
+	for (int i=0; i<KERNELSIZE; i++) {
+		float g = get_luma(MAIN_texOff(vec2(i - KERNELHALFSIZE, 0)));
+		
+		gmax = max(g, gmax);
+	}
+	
+	return vec4(gmax, 0.0, 0.0, 0.0);
+}
+//!DESC Anime4K-v4.0-De-Ring-Compute-Statistics
+//!HOOK MAIN
+//!BIND HOOKED
+//!BIND STATSMAX
+//!SAVE STATSMAX
+//!COMPONENTS 1
+
+#define KERNELSIZE 5 //Kernel size, must be an positive odd integer.
+#define KERNELHALFSIZE 2 //Half of the kernel size without remainder. Must be equal to trunc(KERNELSIZE/2).
+
+vec4 hook() {
+
+	float gmax = 0.0;
+	
+	for (int i=0; i<KERNELSIZE; i++) {
+		float g = STATSMAX_texOff(vec2(0, i - KERNELHALFSIZE)).x;
+		
+		gmax = max(g, gmax);
+	}
+	
+	return vec4(gmax, 0.0, 0.0, 0.0);
+}
 //!DESC Anime4K-v3.2-Upscale-CNN-x2-(S)-Conv-4x3x3x3
 //!HOOK MAIN
 //!BIND MAIN
@@ -163,7 +210,6 @@ vec4 hook() {
 //!WIDTH MAIN.w
 //!HEIGHT MAIN.h
 //!COMPONENTS 4
-//!WHEN OUTPUT.w MAIN.w / 1.200 > OUTPUT.h MAIN.h / 1.200 > *
 #define go_0(x_off, y_off) (MAIN_texOff(vec2(x_off, y_off)))
 vec4 hook() {
     vec4 result = mat4(0.10922428, -0.16249932, 0.15452726, -0.15669551, 0.053448875, -0.16528402, 0.01697721, -0.049275912, 0.20947173, -0.10576949, 0.19738325, -0.025417482, 0.0, 0.0, 0.0, 0.0) * go_0(-1.0, -1.0);
@@ -185,7 +231,6 @@ vec4 hook() {
 //!WIDTH conv2d_tf.w
 //!HEIGHT conv2d_tf.h
 //!COMPONENTS 4
-//!WHEN OUTPUT.w MAIN.w / 1.200 > OUTPUT.h MAIN.h / 1.200 > *
 #define go_0(x_off, y_off) (max((conv2d_tf_texOff(vec2(x_off, y_off))), 0.0))
 #define go_1(x_off, y_off) (max(-(conv2d_tf_texOff(vec2(x_off, y_off))), 0.0))
 vec4 hook() {
@@ -217,7 +262,6 @@ vec4 hook() {
 //!WIDTH conv2d_1_tf.w
 //!HEIGHT conv2d_1_tf.h
 //!COMPONENTS 4
-//!WHEN OUTPUT.w MAIN.w / 1.200 > OUTPUT.h MAIN.h / 1.200 > *
 #define go_0(x_off, y_off) (max((conv2d_1_tf_texOff(vec2(x_off, y_off))), 0.0))
 #define go_1(x_off, y_off) (max(-(conv2d_1_tf_texOff(vec2(x_off, y_off))), 0.0))
 vec4 hook() {
@@ -249,7 +293,6 @@ vec4 hook() {
 //!SAVE MAIN
 //!WIDTH conv2d_2_tf.w
 //!HEIGHT conv2d_2_tf.h
-//!WHEN OUTPUT.w MAIN.w / 1.200 > OUTPUT.h MAIN.h / 1.200 > *
 #define go_0(x_off, y_off) (max((conv2d_2_tf_texOff(vec2(x_off, y_off))), 0.0))
 #define go_1(x_off, y_off) (max(-(conv2d_2_tf_texOff(vec2(x_off, y_off))), 0.0))
 vec4 hook() {
@@ -273,4 +316,22 @@ vec4 hook() {
     result += mat4(0.030582374, 0.03604719, 0.040417343, 0.0, 0.038665913, 0.036998056, 0.030004544, 0.0, 0.09209076, 0.10010001, 0.08389406, 0.0, -0.014655714, -0.0074866647, -0.012227013, 0.0) * go_1(1.0, 1.0);
     result += vec4(-0.008303841, -0.008251826, -0.0069884053, 0.0);
     return result + MAIN_tex(MAIN_pos);
+}
+//!DESC Anime4K-v4.0-De-Ring-Clamp
+//!HOOK MAIN
+//!BIND HOOKED
+//!BIND STATSMAX
+
+float get_luma(vec4 rgba) {
+	return dot(vec4(0.299, 0.587, 0.114, 0.0), rgba);
+}
+
+vec4 hook() {
+
+	float current_luma = get_luma(HOOKED_tex(HOOKED_pos));
+	float new_luma = min(current_luma, STATSMAX_tex(HOOKED_pos).x);
+	
+	//This trick is only possible if the inverse Y->RGB matrix has 1 for every row... (which is the case for BT.709)
+	//Otherwise we would need to convert RGB to YUV, modify Y then convert back to RGB.
+    return HOOKED_tex(HOOKED_pos) - (current_luma - new_luma); 
 }
