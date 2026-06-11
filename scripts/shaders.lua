@@ -6,10 +6,10 @@ local shaders = {
     cunny = { quality = "-3x12", mode = "-DS", dp4a = "" },
     fsrcnnx = { quality = "_8_0_4_1" },
     nnedi3 = { quality = "_nns32" },
-    ravu = { quality = "_r2" }
+    ravu = { quality = "_r2" },
+    gf = false,
+    itm = false
 }
-
-local itm = false
 
 local function update_shaders(no_osd)
     mp.set_property_native("user-data/shaders", shaders)
@@ -42,7 +42,8 @@ local function update_shaders(no_osd)
             }
         end
     end
-    if itm then table.insert(glsl_shaders, "~~/shaders/ITM_Optimization.glsl") end
+    if shaders.gf then table.insert(glsl_shaders, "~~/shaders/kGrainFactory_RT.glsl") end
+    if shaders.itm then table.insert(glsl_shaders, "~~/shaders/ITM_Optimization.glsl") end
     mp.set_property_native("glsl-shaders", glsl_shaders)
     if no_osd then return end
     mp.osd_message("着色器: " .. shaders.state)
@@ -60,8 +61,13 @@ mp.add_timeout(0.1, function()
         shaders.state = shader
         update_shaders()
     end)
-    mp.register_script_message("use_itm_shaders", function(state)
-        itm = state == "true"
+    mp.register_script_message("toggle_gf_shader", function()
+        shaders.gf = not shaders.gf
+        update_shaders(true)
+    end)
+    mp.register_script_message("use_itm_shader", function(state)
+        if shaders.itm == (state == "true") then return end
+        shaders.itm = not shaders.itm
         update_shaders(true)
     end)
 end)
