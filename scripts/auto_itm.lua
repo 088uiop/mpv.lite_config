@@ -6,8 +6,6 @@ local itm = {
 }
 
 local function update()
-    if Lock then return end
-    Lock = mp.add_timeout(0.2, function() Lock = nil end)
     local vp = mp.get_property_native("video-params")
     local vtp = mp.get_property_native("video-target-params")
     if not vp or not vtp then return end
@@ -28,18 +26,17 @@ mp.add_timeout(0.1, function()
     else
         mp.set_property_native("user-data/itm", itm)
     end
-    mp.observe_property("inverse-tone-mapping", nil, update)
-    mp.observe_property("video-params", nil, update)
-    mp.observe_property("video-target-params", nil, update)
-end)
-
-mp.register_script_message("set_itm", function(state)
-    itm.state = state == "next" and ({ auto = "no", no = "yes", yes = "auto" })[itm.state] or state
-    mp.set_property_native("user-data/itm", itm)
-    mp.osd_message("inverse-tone-mapping: " .. itm.state)
-end)
-
-mp.register_script_message("toggle_itm_optimization", function()
-    itm.optimization = not itm.optimization
-    mp.set_property_native("user-data/itm", itm)
+    mp.observe_property("target-colorspace-hint", nil, function() mp.add_timeout(0.1, update) end)
+    mp.register_event("file-loaded", function() mp.add_timeout(0.1, update) end)
+    mp.register_script_message("set_itm", function(state)
+        itm.state = state == "next" and ({ auto = "no", no = "yes", yes = "auto" })[itm.state] or state
+        mp.set_property_native("user-data/itm", itm)
+        mp.osd_message("inverse-tone-mapping: " .. itm.state)
+        update()
+    end)
+    mp.register_script_message("toggle_itm_optimization", function()
+        itm.optimization = not itm.optimization
+        mp.set_property_native("user-data/itm", itm)
+        update()
+    end)
 end)
