@@ -31,7 +31,7 @@ local config_dir = mp.command_native({ "expand-path", "~~/" })
 local function toggle_vs(state)
     local vf = mp.get_property_native("vf")
     for _, filter in ipairs(vf) do
-        if filter.label:find("VS") and filter.enabled ~= state then
+        if filter.label and filter.label:find("VS") and filter.enabled ~= state then
             mp.commandv("vf", "toggle", "@" .. filter.label)
         end
     end
