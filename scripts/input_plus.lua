@@ -205,7 +205,7 @@ local function update()
 end
 
 
-mp.add_timeout(0.1, function()
+mp.add_timeout(0.5, function()
     if mp.get_property_native("user-data/chap-skip") then
         chap_skip = true
         mp.observe_property("chapter-metadata/TITLE", "string", chap_skip_check)

@@ -49,7 +49,7 @@ local function update_shaders(no_osd)
     mp.osd_message("着色器: " .. shaders.state)
 end
 
-mp.add_timeout(0.1, function()
+mp.add_timeout(0.5, function()
     local saved = mp.get_property_native("user-data/shaders")
     if saved then shaders = saved end
     update_shaders(true)

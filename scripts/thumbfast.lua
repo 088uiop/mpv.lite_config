@@ -534,7 +534,7 @@ mp.register_event("file-loaded", on_file_loaded)
 mp.register_event("shutdown", on_shutdown)
 mp.register_idle(watch_property_changes)
 
-mp.add_timeout(0.1, function()
+mp.add_timeout(0.5, function()
     state.auto_run = not mp.get_property_native("user-data/thumbfast-off")
     state.hwdec = not mp.get_property_native("user-data/thumbfast-hw-off")
 end)

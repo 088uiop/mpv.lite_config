@@ -170,7 +170,7 @@ local function smart_pad()
     unlock(o_aspect)
 end
 
-mp.add_timeout(0.1, function()
+mp.add_timeout(0.5, function()
     local script = io.open(uosc_danmaku_main_path, 'a+')
     if script then
         local support = false

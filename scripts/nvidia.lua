@@ -41,7 +41,7 @@ local function vsr_context_check()
     end
 end
 
-mp.add_timeout(0.1, function()
+mp.add_timeout(0.5, function()
     if mp.get_property_native("user-data/nv-vsr") then
         vsr = true
         mp.commandv("vf", "pre", "@NVvsr:!d3d11vpp=format=nv12:scale=2:scaling-mode=nvidia")

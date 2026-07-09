@@ -207,7 +207,7 @@ local function encode_video()
     os.remove(video_path .. ".lwi")
 end
 
-mp.add_timeout(0.1, function()
+mp.add_timeout(0.5, function()
     VS_Checked = io.open(mp.command_native({ "expand-path", "~~/../VSPipe.exe" })) and true or false
     mp.set_property_native("user-data/vs_checked", VS_Checked)
     if not VS_Checked then

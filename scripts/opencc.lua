@@ -132,7 +132,7 @@ local function set_convert_mode(mode)
     mp.osd_message("字幕繁简转换: " .. status_msg)
 end
 
-mp.add_timeout(0.1, function()
+mp.add_timeout(0.5, function()
     local saved = mp.get_property_native("user-data/opencc-mode")
     if saved then
         state = saved
