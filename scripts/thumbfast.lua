@@ -534,33 +534,34 @@ mp.register_event("file-loaded", on_file_loaded)
 mp.register_event("shutdown", on_shutdown)
 mp.register_idle(watch_property_changes)
 
-mp.add_timeout(0.5, function()
+local function init(_, loaded)
+    if not loaded then return end
     state.auto_run = not mp.get_property_native("user-data/thumbfast-off")
     state.hwdec = not mp.get_property_native("user-data/thumbfast-hw-off")
-end)
+    mp.add_key_binding(nil, "thumb_restart", function()
+        if not state.auto_run then return end
+        clear_state()
+        on_shutdown()
+        on_file_loaded()
+        mp.osd_message("缩略图功能已重启")
+    end)
+    mp.add_key_binding(nil, "thumb_toggle", function()
+        state.auto_run = not state.auto_run
+        clear_state()
+        on_shutdown()
+        on_file_loaded()
+        mp.set_property_native("user-data/thumbfast-off", not state.auto_run)
+        mp.osd_message("缩略图功能已" .. (state.auto_run and "启用" or "禁用"))
+    end)
+    mp.add_key_binding(nil, "thumb_hwdec_toggle", function()
+        state.hwdec = not state.hwdec
+        mp.set_property_native("user-data/thumbfast-hw-off", not state.hwdec)
+        mp.osd_message("缩略图硬件解码已" .. (state.hwdec and "启用" or "禁用"))
+        clear_state()
+        on_shutdown()
+        on_file_loaded()
+    end)
+    mp.unobserve_property(init)
+end
 
-mp.add_key_binding(nil, "thumb_restart", function()
-    if not state.auto_run then return end
-    clear_state()
-    on_shutdown()
-    on_file_loaded()
-    mp.osd_message("缩略图功能已重启")
-end)
-
-mp.add_key_binding(nil, "thumb_toggle", function()
-    state.auto_run = not state.auto_run
-    clear_state()
-    on_shutdown()
-    on_file_loaded()
-    mp.set_property_native("user-data/thumbfast-off", not state.auto_run)
-    mp.osd_message("缩略图功能已" .. (state.auto_run and "启用" or "禁用"))
-end)
-
-mp.add_key_binding(nil, "thumb_hwdec_toggle", function()
-    state.hwdec = not state.hwdec
-    mp.set_property_native("user-data/thumbfast-hw-off", not state.hwdec)
-    mp.osd_message("缩略图硬件解码已" .. (state.hwdec and "启用" or "禁用"))
-    clear_state()
-    on_shutdown()
-    on_file_loaded()
-end)
+mp.observe_property("user-data/__state_loaded__", "bool", init)

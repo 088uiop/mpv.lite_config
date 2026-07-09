@@ -132,7 +132,8 @@ local function set_convert_mode(mode)
     mp.osd_message("字幕繁简转换: " .. status_msg)
 end
 
-mp.add_timeout(0.5, function()
+local function init(_, loaded)
+    if not loaded then return end
     local saved = mp.get_property_native("user-data/opencc-mode")
     if saved then
         state = saved
@@ -143,4 +144,7 @@ mp.add_timeout(0.5, function()
     mp.register_event("file-loaded", function() convert_subtitles(mp.get_property_number("sid")) end)
     mp.register_script_message("opencc_set", function(v) set_convert_mode(tonumber(v)) end)
     mp.add_key_binding(nil, "toggle-state", function() set_convert_mode((state + 1) % 3) end)
-end)
+    mp.unobserve_property(init)
+end
+
+mp.observe_property("user-data/__state_loaded__", "bool", init)

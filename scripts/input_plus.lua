@@ -204,8 +204,8 @@ local function update()
     })
 end
 
-
-mp.add_timeout(0.5, function()
+local function init(_, loaded)
+    if not loaded then return end
     if mp.get_property_native("user-data/chap-skip") then
         chap_skip = true
         mp.observe_property("chapter-metadata/TITLE", "string", chap_skip_check)
@@ -253,4 +253,7 @@ mp.add_timeout(0.5, function()
     mp.add_key_binding(nil, "r_video", r_video)
     mp.add_key_binding(nil, "l_video", l_video)
     mp.add_key_binding(nil, "update", update)
-end)
+    mp.unobserve_property(init)
+end
+
+mp.observe_property("user-data/__state_loaded__", "bool", init)

@@ -41,7 +41,8 @@ local function vsr_context_check()
     end
 end
 
-mp.add_timeout(0.5, function()
+local function init(_, loaded)
+    if not loaded then return end
     if mp.get_property_native("user-data/nv-vsr") then
         vsr = true
         mp.commandv("vf", "pre", "@NVvsr:!d3d11vpp=format=nv12:scale=2:scaling-mode=nvidia")
@@ -81,4 +82,7 @@ mp.add_timeout(0.5, function()
             mp.commandv("vf", "remove", "@NVhdr")
         end
     end)
-end)
+    mp.unobserve_property(init)
+end
+
+mp.observe_property("user-data/__state_loaded__", "bool", init)

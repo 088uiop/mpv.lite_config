@@ -170,7 +170,8 @@ local function smart_pad()
     unlock(o_aspect)
 end
 
-mp.add_timeout(0.5, function()
+local function init(_, loaded)
+    if not loaded then return end
     local script = io.open(uosc_danmaku_main_path, 'a+')
     if script then
         local support = false
@@ -216,4 +217,7 @@ mp.add_timeout(0.5, function()
         mp.osd_message("自动填充黑边: " .. (auto_pad and "开" or "关"))
         if auto_pad then smart_pad() else mp.commandv("vf", "remove", "@Pad,@Format") end
     end)
-end)
+    mp.unobserve_property(init)
+end
+
+mp.observe_property("user-data/__state_loaded__", "bool", init)

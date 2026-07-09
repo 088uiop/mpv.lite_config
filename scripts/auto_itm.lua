@@ -19,7 +19,8 @@ local function update()
     mp.commandv("script-message", "use_itm_shader", use_itm_shaders and "true" or "false")
 end
 
-mp.add_timeout(0.5, function()
+local function init(_, loaded)
+    if not loaded then return end
     local saved = mp.get_property_native("user-data/itm")
     if saved then
         itm = saved
@@ -39,4 +40,7 @@ mp.add_timeout(0.5, function()
         mp.set_property_native("user-data/itm", itm)
         update()
     end)
-end)
+    mp.unobserve_property(init)
+end
+
+mp.observe_property("user-data/__state_loaded__", "bool", init)

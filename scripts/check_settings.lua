@@ -25,7 +25,6 @@ for _, v in ipairs(split(o.user_props, ',')) do
 end
 
 local function save_state()
-    if not o.save_and_load then return end
     local state = {}
     for _, prop in ipairs(props) do
         state[prop] = mp.get_property_native(prop)
@@ -39,7 +38,7 @@ local function save_state()
 end
 
 local function load_state()
-    if not o.save_and_load then return end
+    mp.set_property_native("user-data/__state_loaded__", false)
     local file = io.open(config_dir .. "/settings_state.json", "r")
     if not file then return end
     local ok, saved = pcall(utils.parse_json, file:read("*a"))
@@ -48,8 +47,11 @@ local function load_state()
     for _, prop in ipairs(props) do
         if saved[prop] ~= nil then mp.set_property_native(prop, saved[prop]) end
     end
+    mp.set_property_native("user-data/__state_loaded__", true)
 end
 
-load_state()
-mp.register_script_message("save_state", save_state)
-mp.register_event("shutdown", save_state)
+if o.save_and_load then
+    load_state()
+    mp.register_event("shutdown", save_state)
+    mp.register_script_message("save_state", save_state)
+end
