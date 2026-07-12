@@ -11,8 +11,9 @@ local shaders = {
     itm = false
 }
 
-local function update_shaders(no_osd)
+local function update(no_osd)
     mp.set_property_native("user-data/shaders", shaders)
+    mp.command("script-message save_state")
     local glsl_shaders = {}
     if shaders.state ~= "nil" then
         local path = "~~/shaders/" .. shaders.state .. "/"
@@ -53,23 +54,23 @@ local function init(_, loaded)
     if not loaded then return end
     local saved = mp.get_property_native("user-data/shaders")
     if saved then shaders = saved end
-    update_shaders(true)
+    update(true)
     mp.register_script_message("set_shaders", function(shader, key, value)
         shaders[shader][key] = value
-        update_shaders(true)
+        update(true)
     end)
     mp.register_script_message("use_shader", function(shader)
         shaders.state = shader
-        update_shaders()
+        update()
     end)
     mp.register_script_message("toggle_gf_shader", function()
         shaders.gf = not shaders.gf
-        update_shaders(true)
+        update(true)
     end)
     mp.register_script_message("use_itm_shader", function(state)
         if shaders.itm == (state == "true") then return end
         shaders.itm = not shaders.itm
-        update_shaders(true)
+        update(true)
     end)
     mp.unobserve_property(init)
 end

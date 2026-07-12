@@ -63,6 +63,7 @@ local function init(_, loaded)
         if mp.get_property_native("current-gpu-context") ~= 'd3d11' then return end
         vsr = not vsr
         mp.set_property_native("user-data/nv-vsr", vsr)
+        mp.command("script-message save_state")
         mp.osd_message("NV-VSR: " .. (vsr and "开" or "关"))
         if vsr then
             mp.commandv("vf", "pre", "@NVvsr:!d3d11vpp=format=nv12:scale=2:scaling-mode=nvidia")
@@ -75,6 +76,7 @@ local function init(_, loaded)
         if mp.get_property_native("current-gpu-context") ~= 'd3d11' then return end
         hdr = not hdr
         mp.set_property_native("user-data/nv-hdr", hdr)
+        mp.command("script-message save_state")
         mp.osd_message("NV-HDR: " .. (hdr and "开" or "关"))
         if hdr then
             mp.commandv("vf", "add", "@NVhdr:d3d11vpp=nvidia-true-hdr")

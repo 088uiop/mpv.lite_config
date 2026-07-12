@@ -128,6 +128,7 @@ end
 local function toggle_ssdm()
     enabled = not enabled
     mp.set_property_native("user-data/ssdm-enabled", enabled)
+    mp.command("script-message save_state")
     mp.osd_message("弹幕形式: " .. (enabled and "次字幕" or "OSD"))
     if enabled then
         mp.set_property_native("secondary-sub-visibility", true)
@@ -168,6 +169,14 @@ local function smart_pad()
     mp.commandv("vf", "remove", "@Pad,@Format")
     mp.commandv("vf", "add", string.format("@Format:format=p010,@Pad:pad=aspect=%f:x=-1:y=-1", o_aspect))
     unlock(o_aspect)
+end
+
+local function toggle_pad()
+    auto_pad = not auto_pad
+    mp.set_property_native("user-data/ssdm-pad", auto_pad)
+    mp.command("script-message save_state")
+    mp.osd_message("自动填充黑边: " .. (auto_pad and "开" or "关"))
+    if auto_pad then smart_pad() else mp.commandv("vf", "remove", "@Pad,@Format") end
 end
 
 local function init(_, loaded)
@@ -211,12 +220,7 @@ local function init(_, loaded)
         updating_uosc_danmaku_data = false
     end)
     mp.add_key_binding(nil, "toggle_ssdm", toggle_ssdm)
-    mp.add_key_binding(nil, "toggle_pad", function()
-        auto_pad = not auto_pad
-        mp.set_property_native("user-data/ssdm-pad", auto_pad)
-        mp.osd_message("自动填充黑边: " .. (auto_pad and "开" or "关"))
-        if auto_pad then smart_pad() else mp.commandv("vf", "remove", "@Pad,@Format") end
-    end)
+    mp.add_key_binding(nil, "toggle_pad", toggle_pad)
     mp.unobserve_property(init)
 end
 

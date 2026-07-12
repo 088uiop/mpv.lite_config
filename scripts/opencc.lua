@@ -122,6 +122,7 @@ end
 local function set_convert_mode(mode)
     state = mode
     mp.set_property_native("user-data/opencc-mode", state)
+    mp.command("script-message save_state")
     if converted_sid then
         mp.commandv("sub-remove", converted_sid)
         converted_sid = nil
