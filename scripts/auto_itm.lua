@@ -30,7 +30,7 @@ local function init(_, loaded)
         mp.set_property_native("user-data/itm", itm)
     end
     mp.observe_property("target-colorspace-hint", nil, function() mp.add_timeout(0.1, update) end)
-    mp.register_event("file-loaded", function() mp.add_timeout(0.5, update) end)
+    mp.register_event("file-loaded", function() mp.add_timeout(1, update) end)
     mp.register_script_message("set_itm", function(state)
         itm.state = state == "next" and ({ auto = "no", no = "yes", yes = "auto" })[itm.state] or state
         mp.osd_message("inverse-tone-mapping: " .. itm.state)
