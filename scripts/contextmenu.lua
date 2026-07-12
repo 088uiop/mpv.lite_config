@@ -85,16 +85,15 @@ end
 
 local function init()
     is_init = is_init + 1
-    if is_init < 1 then return end
+    if is_init <= 0 then return end
     mp.unobserve_property(init)
     state_tree = parse_menu()
     local data = update_menu_data(state_tree)
     mp.set_property_native('menu-data', data)
+    mp.add_key_binding('MBTN_RIGHT', '__ctxmenu__', function()
+        mp.set_property_native('menu-data', update_menu_data(state_tree))
+        mp.command('context-menu')
+    end)
 end
 
 mp.observe_property("menu-data", nil, init)
-mp.add_key_binding('MBTN_RIGHT', '__ctxmenu__', function()
-    local data = update_menu_data(state_tree)
-    mp.set_property_native('menu-data', data)
-    mp.command('context-menu')
-end)
