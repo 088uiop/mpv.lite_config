@@ -75,7 +75,6 @@ local vs = {
 
 local function clear()
     mp.set_property_native("user-data/vs", vs)
-    mp.command("script-message save_state")
     local vf = mp.get_property_native("vf")
     for _, filter in ipairs(vf) do
         if filter.label:find("VS") then
@@ -86,7 +85,6 @@ end
 
 local function update()
     mp.set_property_native("user-data/vs", vs)
-    mp.command("script-message save_state")
     for _, mode in pairs(vs.modes) do
         if not vs.preset then break end
         local script_path = mp.command_native({ "expand-path", mode.path })

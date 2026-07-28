@@ -67,7 +67,6 @@ end
 local function chap_skip_toggle()
     chap_skip = not chap_skip
     mp.set_property_native("user-data/chap-skip", chap_skip)
-    mp.command("script-message save_state")
     mp.osd_message("自动跳过设定章节: " .. (chap_skip and "开" or "关"))
     if chap_skip then
         mp.observe_property("chapter-metadata/TITLE", "string", chap_skip_check)

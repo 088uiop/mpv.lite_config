@@ -3,6 +3,7 @@ local mp = require 'mp'
 local vid = 1
 local vsr = false
 local hdr = false
+local init_check = true
 
 local function toggle_vsr(s)
     local vf = mp.get_property_native("vf")
@@ -25,7 +26,11 @@ local function vsr_check()
     end
 end
 
-local function vsr_context_check()
+local function gpu_context_check()
+    if init_check then
+        init_check = false
+        return
+    end
     if mp.get_property_native("current-gpu-context") ~= 'd3d11' then
         if vsr then
             vsr = false
@@ -52,8 +57,7 @@ local function init(_, loaded)
         mp.commandv("vf", "add", "@NVhdr:d3d11vpp=nvidia-true-hdr")
     end
     mp.observe_property("vid", "native", function() vid = mp.get_property_native("vid") or vid end)
-    mp.observe_property("gpu-context", "native", vsr_context_check)
-    mp.observe_property("gpu-api", "native", vsr_context_check)
+    mp.observe_property("gpu-api", "native", gpu_context_check)
     mp.register_event("file-loaded", function()
         if not vsr then return end
         toggle_vsr(false)
@@ -63,7 +67,6 @@ local function init(_, loaded)
         if mp.get_property_native("current-gpu-context") ~= 'd3d11' then return end
         vsr = not vsr
         mp.set_property_native("user-data/nv-vsr", vsr)
-        mp.command("script-message save_state")
         mp.osd_message("NV-VSR: " .. (vsr and "开" or "关"))
         if vsr then
             mp.commandv("vf", "pre", "@NVvsr:!d3d11vpp=format=nv12:scale=2:scaling-mode=nvidia")
@@ -76,7 +79,6 @@ local function init(_, loaded)
         if mp.get_property_native("current-gpu-context") ~= 'd3d11' then return end
         hdr = not hdr
         mp.set_property_native("user-data/nv-hdr", hdr)
-        mp.command("script-message save_state")
         mp.osd_message("NV-HDR: " .. (hdr and "开" or "关"))
         if hdr then
             mp.commandv("vf", "add", "@NVhdr:d3d11vpp=nvidia-true-hdr")

@@ -13,7 +13,6 @@ local shaders = {
 
 local function update(no_osd)
     mp.set_property_native("user-data/shaders", shaders)
-    mp.command("script-message save_state")
     local glsl_shaders = {}
     if shaders.state ~= "nil" then
         local path = "~~/shaders/" .. shaders.state .. "/"

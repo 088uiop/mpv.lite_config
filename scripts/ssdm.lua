@@ -128,7 +128,6 @@ end
 local function toggle_ssdm()
     enabled = not enabled
     mp.set_property_native("user-data/ssdm-enabled", enabled)
-    mp.command("script-message save_state")
     mp.osd_message("弹幕形式: " .. (enabled and "次字幕" or "OSD"))
     if enabled then
         mp.set_property_native("secondary-sub-visibility", true)
@@ -174,7 +173,6 @@ end
 local function toggle_pad()
     auto_pad = not auto_pad
     mp.set_property_native("user-data/ssdm-pad", auto_pad)
-    mp.command("script-message save_state")
     mp.osd_message("自动填充黑边: " .. (auto_pad and "开" or "关"))
     if auto_pad then smart_pad() else mp.commandv("vf", "remove", "@Pad,@Format") end
 end

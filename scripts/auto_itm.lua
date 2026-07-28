@@ -7,7 +7,6 @@ local itm = {
 
 local function update()
     mp.set_property_native("user-data/itm", itm)
-    mp.command("script-message save_state")
     local hdr_video = VP_GAMMA == 'pq'
     local hdr_display = VTP_GAMMA == 'pq'
     local sdr_to_hdr = not hdr_video and hdr_display
