@@ -11,3 +11,5 @@ https://github.com/shinchiro/mpv-winbuild-cmake
 https://github.com/hooke007/mpv_PlayKit  
 https://github.com/tomasklaen/uosc  
 https://github.com/Tony15246/uosc_danmaku  
+https://github.com/bloc97/Anime4K  
+https://github.com/funnyplanter/CuNNy  
