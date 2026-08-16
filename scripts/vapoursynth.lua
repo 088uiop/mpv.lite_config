@@ -186,7 +186,7 @@ local function encode_video()
     local function esc(p) return string.gsub(p, "[%%^&]", { ["%%"] = "%%%%", ["^"] = "^^", ["&"] = "^&" }) end
     local vp = mp.get_property_native("video-params")
     local x265_params = string.format(
-        '-x265-params "colorprim=%s:colormatrix=%s:transfer=%s:range=%s" ',
+        '-x265-params "colorprim=%s:colormatrix=%s:transfer=%s:range=%s"',
         vp.primaries == "bt.2020" and "bt2020" or "bt709",
         vp.colormatrix == "bt.2020-ncl" and "bt2020nc" or "bt709",
         vp.gamma == "pq" and "smpte2084" or vp.gamma == "hlg" and "arib-std-b67" or vp.gamma,
@@ -200,7 +200,7 @@ local function encode_video()
         ))
     end
     local cmd = string.format(
-        'cmd /c "cd /d %q & vspipe -c y4m %q - -p | ffmpeg -y -hide_banner -loglevel error -thread_queue_size 2048 -i - -i %q -map 0:v -map 1:a? -map 1:s? -map 1:t? -map 1:d? -c:v libx265 -crf 18 -pix_fmt p010 %s-c:a copy -c:s copy -c:t copy -c:d copy %q & pause"',
+        'cmd /c "cd /d %q & vspipe -c y4m %q - -p | ffmpeg -y -hide_banner -loglevel error -thread_queue_size 2048 -i - -i %q -map 0:v -map 1:a? -map 1:s? -map 1:t? -c:v libx265 -crf 18 -pix_fmt p010 %s -c:a copy -c:s copy -c:t copy %q & pause"',
         esc(mpv_path), esc(vpy_path), esc(video_path), x265_params, esc(output_path)
     )
     os.execute(cmd)
