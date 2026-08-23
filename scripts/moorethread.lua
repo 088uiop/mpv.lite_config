@@ -50,7 +50,7 @@ local function init(_, loaded)
     if mp.get_property_native("user-data/mtmtg-vsr") then
         if vendor_ok() then
             mtmtg = true
-            mp.commandv("vf", "pre", "@MTVSR:!d3d11vpp=format=nv12:scale=2:scaling-mode=mtmtg")
+            mp.commandv("vf", "pre", "@MTVSR:!d3d11vpp=format=p010:scale=2:scaling-mode=mtmtg")
         else
             mp.set_property_native("user-data/mtmtg-vsr", false)
         end
@@ -80,7 +80,7 @@ local function init(_, loaded)
         mp.set_property_native("user-data/mtmtg-vsr", mtmtg)
         mp.osd_message("MT-VSR: " .. (mtmtg and "开" or "关"))
         if mtmtg then
-            mp.commandv("vf", "pre", "@MTVSR:!d3d11vpp=format=nv12:scale=2:scaling-mode=mtmtg")
+            mp.commandv("vf", "pre", "@MTVSR:!d3d11vpp=format=p010:scale=2:scaling-mode=mtmtg")
             mtmtg_check()
         else
             mp.commandv("vf", "remove", "@MTVSR")
