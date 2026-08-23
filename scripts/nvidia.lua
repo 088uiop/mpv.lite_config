@@ -5,6 +5,11 @@ local vsr = false
 local hdr = false
 local init_check = true
 
+-- user-data/gpu-nvidia 为 nil（未检测）时放行，仅 false（确认不存在）时拦截
+local function vendor_ok()
+    return mp.get_property_native("user-data/gpu-nvidia") ~= false
+end
+
 local function toggle_vsr(s)
     local vf = mp.get_property_native("vf")
     for _, filter in ipairs(vf) do
@@ -31,7 +36,7 @@ local function gpu_context_check()
         init_check = false
         return
     end
-    if mp.get_property_native("current-gpu-context") ~= 'd3d11' then
+    if mp.get_property_native("current-gpu-context") ~= 'd3d11' or not vendor_ok() then
         if vsr then
             vsr = false
             mp.commandv("vf", "remove", "@NVvsr")
@@ -49,15 +54,31 @@ end
 local function init(_, loaded)
     if not loaded then return end
     if mp.get_property_native("user-data/nv-vsr") then
-        vsr = true
-        mp.commandv("vf", "pre", "@NVvsr:!d3d11vpp=format=nv12:scale=2:scaling-mode=nvidia")
+        if vendor_ok() then
+            vsr = true
+            mp.commandv("vf", "pre", "@NVvsr:!d3d11vpp=format=nv12:scale=2:scaling-mode=nvidia")
+        else
+            mp.set_property_native("user-data/nv-vsr", false)
+        end
     end
     if mp.get_property_native("user-data/nv-hdr") then
-        hdr = true
-        mp.commandv("vf", "add", "@NVhdr:d3d11vpp=nvidia-true-hdr")
+        if vendor_ok() then
+            hdr = true
+            mp.commandv("vf", "add", "@NVhdr:d3d11vpp=nvidia-true-hdr")
+        else
+            mp.set_property_native("user-data/nv-hdr", false)
+        end
     end
     mp.observe_property("vid", "native", function() vid = mp.get_property_native("vid") or vid end)
     mp.observe_property("gpu-api", "native", gpu_context_check)
+    local vendor_init = true
+    mp.observe_property("user-data/gpu-nvidia", "native", function()
+        if vendor_init then
+            vendor_init = false
+            return
+        end
+        gpu_context_check()
+    end)
     mp.register_event("file-loaded", function()
         if not vsr then return end
         toggle_vsr(false)
@@ -65,6 +86,10 @@ local function init(_, loaded)
     end)
     mp.add_key_binding(nil, "toggle-nv-vsr", function()
         if mp.get_property_native("current-gpu-context") ~= 'd3d11' then return end
+        if not vendor_ok() then
+            mp.osd_message("NV-VSR: 未检测到 NVIDIA 显卡，无法启用")
+            return
+        end
         vsr = not vsr
         mp.set_property_native("user-data/nv-vsr", vsr)
         mp.osd_message("NV-VSR: " .. (vsr and "开" or "关"))
@@ -77,6 +102,10 @@ local function init(_, loaded)
     end)
     mp.add_key_binding(nil, "toggle-nv-hdr", function()
         if mp.get_property_native("current-gpu-context") ~= 'd3d11' then return end
+        if not vendor_ok() then
+            mp.osd_message("NV-HDR: 未检测到 NVIDIA 显卡，无法启用")
+            return
+        end
         hdr = not hdr
         mp.set_property_native("user-data/nv-hdr", hdr)
         mp.osd_message("NV-HDR: " .. (hdr and "开" or "关"))
