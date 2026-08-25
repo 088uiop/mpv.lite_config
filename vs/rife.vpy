@@ -4,11 +4,8 @@ import k7sfunc
 wpre = 1920
 hpre = 1080
 
-## <True|False> 使用TRT(True)还是DML(False)
-trt = True
-
-## <True|False> 使用TensorRT-RTX
-rtx = False
+## <ort_dml|trt|trt_rtx> 使用的后端
+be = "ort_dml"
 
 ## <True|False> 使用静态引擎(True)还是动态引擎(False)
 static = True
@@ -39,5 +36,5 @@ clip = video_in
 fin = container_fps
 clip = k7sfunc.FPS_LIMIT(clip, fin, fmax)
 clip = k7sfunc.FMT_DSCALE(clip, wpre, hpre, lkfmt)
-clip = k7sfunc.RIFE(clip, fin, trt, rtx, static, model, abs, fnum, fden, sc, gpu)
+clip = k7sfunc.RIFE(clip, fin, be, static, model, abs, fnum, fden, sc, gpu)
 clip.set_output()

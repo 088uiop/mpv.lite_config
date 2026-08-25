@@ -4,11 +4,8 @@ import k7sfunc
 wpre = 1920
 hpre = 1080
 
-## <True|False> 使用TRT(True)还是DML(False)
-trt = True
-
-## <True|False> 使用TensorRT-RTX
-rtx = False
+## <ort_dml|trt|trt_rtx> 使用的后端
+be = "ort_dml"
 
 ## <True|False> 使用静态引擎(True)还是动态引擎(False)
 static = True
@@ -19,9 +16,6 @@ model = "HFA2kCompact_x2.onnx"
 ## 限制最高输入分辨率
 wlim = 1920
 hlim = 1080
-
-## 限制最高输入帧率
-fmax = 60
 
 ## 限制最高输出分辨率
 wmax = 3840
@@ -35,9 +29,8 @@ lkfmt = False
 
 clip = video_in
 fin = container_fps
-clip = k7sfunc.FPS_LIMIT(clip, fin, fmax)
 clip = k7sfunc.FMT_LIMIT(clip, wlim, hlim)
 clip = k7sfunc.FMT_DSCALE(clip, wpre, hpre, lkfmt)
-clip = k7sfunc.UAI(clip, trt, rtx, static, model, gpu)
+clip = k7sfunc.UAI(clip, be, static, model, gpu)
 clip = k7sfunc.FMT_DSCALE(clip, wmax, hmax, lkfmt)
 clip.set_output()
