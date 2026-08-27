@@ -943,10 +943,10 @@ setmetatable(options, {
     end,
     __newindex = function(_, k, v)
         _options[k] = v
-        mp.command("script-message refresh_ssdm")
+        mp.commandv("script-message-to", "ssdm", "danmaku_refresh")
     end
 })
-mp.register_script_message("update_uosc_danmaku_data", function()
+mp.register_script_message("send_data", function()
     local data = { enabled = ENABLED, comments = COMMENTS, options = _options }
-    mp.commandv("script-message", "uosc_danmaku_data_to_ssdm", utils.format_json(data))
+    mp.commandv("script-message-to", "ssdm", "receive_data", utils.format_json(data))
 end)
