@@ -25,13 +25,28 @@ local vs = {
                 wpre = '1920',
                 hpre = '1080',
                 be = '"ort_dml"',
-                static = 'True',
                 model = '46',
                 fnum = '2',
                 fden = '1',
                 abs = 'False',
                 fmax = '30',
                 sc = 'True',
+                gpu = '0'
+            }
+        },
+        drba = {
+            label = 'DRBA',
+            path = '~~/vs/drba.vpy',
+            settings = {
+                wpre = '1920',
+                hpre = '1080',
+                be = '"ort_dml"',
+                model = '2',
+                fnum = '2',
+                fden = '1',
+                abs = 'False',
+                fmax = '30',
+                sc = 'False',
                 gpu = '0'
             }
         },
@@ -42,7 +57,6 @@ local vs = {
                 wpre = '1920',
                 hpre = '1080',
                 be = '"ort_dml"',
-                static = 'True',
                 model = '5008',
                 wlim = '1920',
                 hlim = '1080',
@@ -58,7 +72,6 @@ local vs = {
                 wpre = '1920',
                 hpre = '1080',
                 be = '"ort_dml"',
-                static = 'True',
                 model = '"HFA2kCompact_x2.onnx"',
                 wlim = '1920',
                 hlim = '1080',
@@ -86,22 +99,24 @@ local function update()
         if not vs.preset then break end
         local script_path = mp.command_native({ "expand-path", mode.path })
         local script = io.open(script_path, 'r')
-        local new_script_parts = {}
-        if not script then break end
-        for line in script:lines() do
-            for k, v in pairs(mode.settings) do
-                if line:match(k .. "%s*=") then
-                    line = k .. " = " .. v
-                    break
+        if script then
+            local new_script_parts = {}
+            for line in script:lines() do
+                for k, v in pairs(mode.settings) do
+                    if line:match(k .. "%s*=") then
+                        line = k .. " = " .. v
+                        break
+                    end
                 end
+                table.insert(new_script_parts, line)
             end
-            table.insert(new_script_parts, line)
+            script:close()
+            local new_script = io.open(script_path, 'w')
+            if new_script then
+                new_script:write(table.concat(new_script_parts, "\n"))
+                new_script:close()
+            end
         end
-        script:close()
-        local new_script = io.open(script_path, 'w')
-        if not new_script then break end
-        new_script:write(table.concat(new_script_parts, "\n"))
-        new_script:close()
     end
     for i, mode in ipairs(vs.state) do
         mp.commandv("vf", "add", "@VS" .. i .. ":vapoursynth:file=" .. vs.modes[mode].path)

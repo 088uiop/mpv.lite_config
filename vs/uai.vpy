@@ -7,9 +7,6 @@ hpre = 1080
 ## <ort_dml|trt|trt_rtx> 使用的后端
 be = "ort_dml"
 
-## <True|False> 使用静态引擎(True)还是动态引擎(False)
-static = True
-
 ## 指定使用的模型，文件放置位为 .../mpv/vs-plugins/models/uai/
 model = "HFA2kCompact_x2.onnx"
 
@@ -31,6 +28,6 @@ clip = video_in
 fin = container_fps
 clip = k7sfunc.FMT_LIMIT(clip, wlim, hlim)
 clip = k7sfunc.FMT_DSCALE(clip, wpre, hpre, lkfmt)
-clip = k7sfunc.UAI(clip, be, static, model, gpu)
+clip = k7sfunc.UAI(clip, be, model, gpu)
 clip = k7sfunc.FMT_DSCALE(clip, wmax, hmax, lkfmt)
 clip.set_output()

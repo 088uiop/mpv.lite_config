@@ -7,8 +7,8 @@ hpre = 1080
 ## <ort_dml|trt|trt_rtx> 使用的后端
 be = "ort_dml"
 
-## <46|4251|426|4262> 使用的模型
-model = 46
+## <1|2> 使用的模型
+model = 2
 
 ## 整数，Fnum/Fden 的值即输出
 fnum = 2
@@ -21,7 +21,7 @@ abs = False
 fmax = 30
 
 ## <True|False> 场景切换检测
-sc = True
+sc = False
 
 ## 使用的显卡序号，0为排序一号
 gpu = 0
@@ -33,5 +33,5 @@ clip = video_in
 fin = container_fps
 clip = k7sfunc.FPS_LIMIT(clip, fin, fmax)
 clip = k7sfunc.FMT_DSCALE(clip, wpre, hpre, lkfmt)
-clip = k7sfunc.RIFE(clip, fin, be, model, abs, fnum, fden, sc, gpu)
+clip = k7sfunc.DRBA(clip, fin, be, model, abs, fnum, fden, sc, gpu)
 clip.set_output()
