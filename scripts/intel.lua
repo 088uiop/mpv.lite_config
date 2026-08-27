@@ -24,7 +24,7 @@ local function vsr_check()
     local h = mp.get_property_native("height")
     if not (w and h) then return end
     if w < 540 or h < 320 or w > 2560 or h > 1440 then
-        mp.msg.warn("Intel VSR: 输入分辨率超出作用阈值")
+        mp.msg.warn("INTEL-VSR: 输入分辨率超出作用阈值")
     else
         toggle_vsr(true)
     end
@@ -73,12 +73,12 @@ local function init(_, loaded)
     mp.add_key_binding(nil, "toggle-intel-vsr", function()
         if mp.get_property_native("current-gpu-context") ~= 'd3d11' then return end
         if not vendor_ok() then
-            mp.osd_message("Intel VSR: 未检测到 Intel 显卡，无法启用")
+            mp.osd_message("INTEL-VSR: 未检测到 Intel 显卡，无法启用")
             return
         end
         vsr = not vsr
         mp.set_property_native("user-data/intel-vsr", vsr)
-        mp.osd_message("Intel VSR: " .. (vsr and "开" or "关"))
+        mp.osd_message("INTEL-VSR: " .. (vsr and "开" or "关"))
         if vsr then
             mp.commandv("vf", "pre", "@IntelVSR:!d3d11vpp=format=nv12:scale=2:scaling-mode=intel")
             vsr_check()
