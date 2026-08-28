@@ -25,7 +25,6 @@ gpu = 0
 lkfmt = False
 
 clip = video_in
-fin = container_fps
 clip = k7sfunc.FMT_LIMIT(clip, wlim, hlim)
 clip = k7sfunc.FMT_DSCALE(clip, wpre, hpre, lkfmt)
 clip = k7sfunc.RealESRGAN(clip, be, model, gpu)
