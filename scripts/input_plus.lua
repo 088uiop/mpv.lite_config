@@ -225,9 +225,17 @@ local function show_ytdl_settings_menu()
             for _, item in ipairs(menu_data.items) do if item.active then activity_item = item end end
             if activity_item then
                 if activity_item.title == "代理地址" then
-                    current_settings.proxy = event.query
+                    if event.query == '' then
+                        current_settings.proxy = nil
+                    else
+                        current_settings.proxy = event.query
+                    end
                 elseif activity_item.title == "Cookies路径" then
-                    current_settings.cookies = event.query
+                    if event.query == '' then
+                        current_settings.cookies = nil
+                    else
+                        current_settings.cookies = event.query
+                    end
                 end
                 mp.set_property_native("ytdl-raw-options", current_settings)
                 activity_item.hint = event.query
