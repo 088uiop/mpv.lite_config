@@ -26,6 +26,7 @@ local chap_skip = false
 local chap_keywords = split(opt.skip_chapters, ",")
 local original_speed = nil
 local original_shaders = nil
+local menu_data = {}
 local config_dir = mp.command_native({ "expand-path", "~~/" })
 
 local function toggle_vs(state)
@@ -192,7 +193,7 @@ end
 
 local function show_ytdl_settings_menu()
     local current_settings = mp.get_property_native("ytdl-raw-options")
-    local menu_data = {
+    menu_data = {
         type = "ytdl_settings",
         title = "ytdl设置",
         callback = { mp.get_script_name(), "update_ytdl_settings_menu" },
@@ -202,47 +203,6 @@ local function show_ytdl_settings_menu()
             { title = "手动更新Cookies" }
         }
     }
-    mp.register_script_message("update_ytdl_settings_menu", function(json)
-        local event = utils.parse_json(json)
-        if event.type == "activate" then
-            local activity_item = menu_data.items[event.index]
-            menu_data.search_debounce = "submit"
-            menu_data.search_style = "palette"
-            menu_data.on_search = "callback"
-            if activity_item.title == "代理地址" then
-                menu_data.title = "输入代理服务器地址"
-            elseif activity_item.title == "Cookies路径" then
-                menu_data.title = "输入Cookies物理路径"
-            elseif activity_item.title == "手动更新Cookies" then
-                mp.command_native_async({ name = "subprocess", playback_only = false, args = { "notepad", current_settings.cookies } })
-                mp.commandv("script-message-to", "uosc", "close-menu")
-            end
-            for _, item in ipairs(menu_data.items) do item.active = false end
-            activity_item.active = true
-            mp.commandv("script-message-to", "uosc", "update-menu", utils.format_json(menu_data))
-        elseif event.type == "search" then
-            local activity_item = nil
-            for _, item in ipairs(menu_data.items) do if item.active then activity_item = item end end
-            if activity_item then
-                if activity_item.title == "代理地址" then
-                    if event.query == '' then
-                        current_settings.proxy = nil
-                    else
-                        current_settings.proxy = event.query
-                    end
-                elseif activity_item.title == "Cookies路径" then
-                    if event.query == '' then
-                        current_settings.cookies = nil
-                    else
-                        current_settings.cookies = event.query
-                    end
-                end
-                mp.set_property_native("ytdl-raw-options", current_settings)
-                activity_item.hint = event.query
-            end
-            mp.commandv("script-message-to", "uosc", "open-menu", utils.format_json(menu_data))
-        end
-    end)
     mp.commandv("script-message-to", "uosc", "open-menu", utils.format_json(menu_data))
 end
 
@@ -295,6 +255,48 @@ local function init(_, loaded)
             end
         end)
     end
+    mp.register_script_message("update_ytdl_settings_menu", function(json)
+        local event = utils.parse_json(json)
+        local ytdl_settings = mp.get_property_native("ytdl-raw-options")
+        if event.type == "activate" then
+            local activity_item = menu_data.items[event.index]
+            menu_data.search_debounce = "submit"
+            menu_data.search_style = "palette"
+            menu_data.on_search = "callback"
+            if activity_item.title == "代理地址" then
+                menu_data.title = "输入代理服务器地址"
+            elseif activity_item.title == "Cookies路径" then
+                menu_data.title = "输入Cookies物理路径"
+            elseif activity_item.title == "手动更新Cookies" then
+                mp.command_native_async({ name = "subprocess", playback_only = false, args = { "notepad", ytdl_settings.cookies } })
+                mp.commandv("script-message-to", "uosc", "close-menu")
+            end
+            for _, item in ipairs(menu_data.items) do item.active = false end
+            activity_item.active = true
+            mp.commandv("script-message-to", "uosc", "update-menu", utils.format_json(menu_data))
+        elseif event.type == "search" then
+            local activity_item = nil
+            for _, item in ipairs(menu_data.items) do if item.active then activity_item = item end end
+            if activity_item then
+                if activity_item.title == "代理地址" then
+                    if event.query == '' then
+                        ytdl_settings.proxy = nil
+                    else
+                        ytdl_settings.proxy = event.query
+                    end
+                elseif activity_item.title == "Cookies路径" then
+                    if event.query == '' then
+                        ytdl_settings.cookies = nil
+                    else
+                        ytdl_settings.cookies = event.query
+                    end
+                end
+                mp.set_property_native("ytdl-raw-options", ytdl_settings)
+                activity_item.hint = event.query
+            end
+            mp.commandv("script-message-to", "uosc", "open-menu", utils.format_json(menu_data))
+        end
+    end)
     mp.add_key_binding(nil, "chap_skip_toggle", chap_skip_toggle)
     mp.add_key_binding(nil, "import_files", function() import("Media") end)
     mp.add_key_binding(nil, "import_append_aid", function() import("AudioTrack") end)
