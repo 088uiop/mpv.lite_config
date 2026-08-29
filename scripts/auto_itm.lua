@@ -7,14 +7,15 @@ local itm = {
 
 local function update()
     mp.set_property_native("user-data/itm", itm)
-    local hdr_video = VP_GAMMA == 'pq'
+    local hdr_video = VOP_GAMMA == 'pq'
     local hdr_display = VTP_GAMMA == 'pq'
     local sdr_to_hdr = not hdr_video and hdr_display
     local use_itm = itm.state == "auto" and sdr_to_hdr or itm.state == "yes"
     local use_itm_shaders = itm.optimization and use_itm and sdr_to_hdr
     mp.set_property_native("inverse-tone-mapping", use_itm)
     mp.set_property_native("tone-mapping", use_itm and "bt.2446a" or "auto")
-    mp.commandv("script-message", "use_itm_shader", use_itm_shaders and "true" or "false")
+    mp.set_property_native("hdr-reference-white", use_itm and 203 or "auto")
+    mp.commandv("script-message-to", "shaders", "use_itm_shader", use_itm_shaders and "true" or "false")
 end
 
 local function init(_, loaded)
@@ -25,9 +26,9 @@ local function init(_, loaded)
     else
         mp.set_property_native("user-data/itm", itm)
     end
-    mp.observe_property("video-params", "native", function(_, vp)
-        if not vp or VP_GAMMA == vp.gamma then return end
-        VP_GAMMA = vp.gamma
+    mp.observe_property("video-out-params", "native", function(_, vop)
+        if not vop or VOP_GAMMA == vop.gamma then return end
+        VOP_GAMMA = vop.gamma
         update()
     end)
     mp.observe_property("video-target-params", "native", function(_, vtp)
