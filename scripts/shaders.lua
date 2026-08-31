@@ -13,6 +13,7 @@ local shaders = {
 
 local function update(no_osd)
     mp.set_property_native("user-data/shaders", shaders)
+    if not no_osd then mp.osd_message("着色器: " .. shaders.state) end
     local glsl_shaders = {}
     if shaders.state ~= "nil" then
         local path = "~~/shaders/" .. shaders.state .. "/"
@@ -45,8 +46,6 @@ local function update(no_osd)
     if shaders.gf then table.insert(glsl_shaders, "~~/shaders/kGrainFactory_RT.glsl") end
     if shaders.itm then table.insert(glsl_shaders, "~~/shaders/ITM_Optimization.glsl") end
     mp.set_property_native("glsl-shaders", glsl_shaders)
-    if no_osd then return end
-    mp.osd_message("着色器: " .. shaders.state)
 end
 
 local function init(_, loaded)
@@ -67,8 +66,7 @@ local function init(_, loaded)
         update(true)
     end)
     mp.register_script_message("use_itm_shader", function(state)
-        if shaders.itm == (state == "true") then return end
-        shaders.itm = not shaders.itm
+        shaders.itm = state == "true"
         update(true)
     end)
     mp.unobserve_property(init)
