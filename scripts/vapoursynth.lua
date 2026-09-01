@@ -547,7 +547,7 @@ local function create_vpy(video_path)
 end
 
 local function encode_video()
-    if not vs.state then
+    if not next(vs.state) then
         mp.msg.warn("当前未添加任何VS滤镜")
         return
     end
