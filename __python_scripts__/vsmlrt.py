@@ -1413,7 +1413,7 @@ class DRBAModel(enum.IntEnum):
     """
     DRBA model versions
     """
-    v1 = 1        # DistilDRBA
+    v1 = 1
     v2_lite = 2
 
 
@@ -1506,35 +1506,6 @@ def DRBAMerge(
         model_name
     )
 
-    # Remember the caller's original bit depth so we can restore the
-    # network output to it after running the fp16-preconverted network
-    # (which uses fp16 IO and would otherwise return a 16-bit clip).
-    orig_bits = clip0.format.bits_per_sample
-
-    # The generic fp32->fp16 conversion built into the ort plugin breaks
-    # DRBA's dynamic shape (auto-padding) computation: the shape subgraph
-    # is converted to fp16 and onnxruntime cannot constant-fold it on CPU,
-    # leaving the network output shape unresolved. Pre-convert the fp32
-    # network ourselves, keeping the shape computation in fp32.
-    if backend.fp16 and isinstance(backend, (
-        Backend.ORT_CPU, Backend.ORT_DML, Backend.ORT_CUDA, Backend.ORT_COREML
-    )):
-        converted_network_path = _get_fp16_network(network_path)
-        if converted_network_path is not None:
-            network_path = converted_network_path
-            backend = copy.copy(backend)
-            backend.fp16 = False
-
-            def _as16(c: vs.VideoNode) -> vs.VideoNode:
-                if c.format.bits_per_sample == 16:
-                    return c
-                fmt = vs.RGBH if c.format.color_family == vs.RGB else vs.GRAYH
-                return core.resize.Bilinear(c, format=fmt)
-
-            clip0, clip1, clip2, clip3, mask = (
-                _as16(c) for c in (clip0, clip1, clip2, clip3, mask)
-            )
-
     gray_format = vs.GRAYS if clip0.format.bits_per_sample == 32 else vs.GRAYH
     scale_placeholder = clip0.std.BlankClip(format=gray_format, color=1.0, keep=True)
 
@@ -1562,16 +1533,8 @@ def DRBAMerge(
     output = inference_with_fallback(
         clips=clips, network_path=network_path,
         overlap=(overlap_w, overlap_h), tilesize=(tile_w, tile_h),
-        backend=backend
+        backend=backend,
     )
-
-    # When the fp16-preconverted network was used, inference ran with fp16
-    # IO (RGBH/GRAYH) and ``output`` is a 16-bit clip even if the caller
-    # supplied 32-bit input. Restore the caller's original bit depth so the
-    # downstream graph (e.g. DRBA's Interleave with the source clip) matches
-    # the fp32 path exactly.
-    if orig_bits == 32 and output.format.bits_per_sample == 16:
-        output = core.resize.Bilinear(output, format=vs.RGBS)
 
     return output
 
@@ -2332,44 +2295,30 @@ def get_engine_path(
     else:
         return f"{os.path.join(dirname, basename)}.{identity}.engine"
 
+from onnx import helper
+
 
 def _fix_fp16_type_mismatches(model):
-    """Fix FP16 type mismatches for TensorRT strong typing.
-
-    Preserves FP32 precision for coordinate computation chains
-    (Cast->Reciprocal, Range->Cast) to prevent visual artifacts,
-    then inserts Cast nodes at FP32/FP16 boundaries.
-    """
+    """Fix FP16 type mismatches for TensorRT strong typing."""
     F32, F16 = 1, 10
-
     ELEM = {"Mul", "Add", "Sub", "Div", "Max", "Min", "Pow", "Mod"}
     SCATTER = {"ScatterND", "ScatterElements"}
     WHERE = {"Where", "Select"}
     GRID = {"GridSample"}
     COMPARE = {"Less", "LessOrEqual", "Greater", "GreaterOrEqual", "Equal"}
+    UNIFORM_OPS = ELEM | COMPARE | {"Concat"}
 
     graph = model.graph
+    producers = {out: node for node in graph.node for out in node.output if out}
 
     # --- Step 1: Revert precision-sensitive Casts to FP32 ---
-    # Build producer map: output_name -> (node_name, op_type)
-    producers = {}
-    for node in graph.node:
-        for out in node.output:
-            if out:
-                producers[out] = node
-
     revert_nodes = set()
-
-    # Cast nodes feeding into Reciprocal (1/x is extremely precision-sensitive)
     for node in graph.node:
         if node.op_type == "Reciprocal" and node.input:
             src = producers.get(node.input[0])
             if src and src.op_type == "Cast":
                 revert_nodes.add(id(src))
-
-    # Cast nodes from Range operations (coordinate grid generation)
-    for node in graph.node:
-        if node.op_type == "Cast" and node.input:
+        elif node.op_type == "Cast" and node.input:
             src = producers.get(node.input[0])
             if src and src.op_type == "Range":
                 revert_nodes.add(id(node))
@@ -2382,43 +2331,37 @@ def _fix_fp16_type_mismatches(model):
 
     # --- Step 2: Type inference ---
     def infer_types(g):
-        types = {}
-        for inp in g.input:
-            if inp.type.tensor_type.elem_type:
-                types[inp.name] = inp.type.tensor_type.elem_type
-        for init in g.initializer:
-            types[init.name] = init.data_type
+        types = {inp.name: inp.type.tensor_type.elem_type for inp in g.input if inp.type.tensor_type.elem_type}
+        types.update({init.name: init.data_type for init in g.initializer})
+        
         for node in g.node:
             if node.op_type == "Constant":
                 for a in node.attribute:
                     if a.name == "value":
                         types[node.output[0]] = a.t.data_type
-                        break
             elif node.op_type == "Cast":
                 for a in node.attribute:
                     if a.name == "to":
                         types[node.output[0]] = a.i
-                        break
             elif node.op_type == "ConstantOfShape":
                 for a in node.attribute:
                     if a.name == "value" and a.t.data_type:
                         types[node.output[0]] = a.t.data_type
-                        break
 
         for _ in range(30):
             changed = False
             for node in g.node:
-                if not node.output or (node.output[0] in types and types[node.output[0]] is not None):
+                if not node.output or types.get(node.output[0]) is not None:
                     continue
                 out = node.output[0]
                 if node.op_type in ELEM:
-                    fts = [types[i] for i in node.input if i and i in types and types[i] in (F32, F16)]
+                    fts = [types[i] for i in node.input if i in types and types[i] in (F32, F16)]
                     if fts:
                         types[out] = fts[0]
                         changed = True
                 else:
                     di = 1 if node.op_type in WHERE else 0
-                    if di < len(node.input) and node.input[di] and node.input[di] in types:
+                    if di < len(node.input) and node.input[di] in types:
                         types[out] = types[node.input[di]]
                         changed = True
             if not changed:
@@ -2430,64 +2373,42 @@ def _fix_fp16_type_mismatches(model):
         mismatches = []
         for i, node in enumerate(g.node):
             bad = []
-            if node.op_type in ELEM:
-                for inp in node.input:
-                    if inp and types.get(inp) in (F32, F16):
-                        bad.append((inp, types[inp]))
-            elif node.op_type in SCATTER:
-                if len(node.input) >= 3:
-                    d, u = types.get(node.input[0]), types.get(node.input[2])
-                    if d in (F32, F16) and u in (F32, F16) and d != u:
-                        bad = [(node.input[0], d), (node.input[2], u)]
-            elif node.op_type in WHERE:
-                if len(node.input) >= 3:
-                    x, y = types.get(node.input[1]), types.get(node.input[2])
-                    if x in (F32, F16) and y in (F32, F16) and x != y:
-                        bad = [(node.input[1], x), (node.input[2], y)]
-            elif node.op_type in GRID:
-                if len(node.input) >= 2:
-                    d, gr = types.get(node.input[0]), types.get(node.input[1])
-                    if d in (F32, F16) and gr in (F32, F16) and d != gr:
-                        bad = [(node.input[0], d), (node.input[1], gr)]
-            elif node.op_type in COMPARE:
-                for inp in node.input:
-                    if inp and types.get(inp) in (F32, F16):
-                        bad.append((inp, types[inp]))
-            elif node.op_type == "Concat":
-                for inp in node.input:
-                    if inp and types.get(inp) in (F32, F16):
-                        bad.append((inp, types[inp]))
+            if node.op_type in UNIFORM_OPS:
+                bad = [(inp, types[inp]) for inp in node.input if inp and types.get(inp) in (F32, F16)]
+            elif node.op_type in SCATTER and len(node.input) >= 3:
+                d, u = types.get(node.input[0]), types.get(node.input[2])
+                if d in (F32, F16) and u in (F32, F16) and d != u:
+                    bad = [(node.input[0], d), (node.input[2], u)]
+            elif node.op_type in WHERE and len(node.input) >= 3:
+                x, y = types.get(node.input[1]), types.get(node.input[2])
+                if x in (F32, F16) and y in (F32, F16) and x != y:
+                    bad = [(node.input[1], x), (node.input[2], y)]
+            elif node.op_type in GRID and len(node.input) >= 2:
+                d, gr = types.get(node.input[0]), types.get(node.input[1])
+                if d in (F32, F16) and gr in (F32, F16) and d != gr:
+                    bad = [(node.input[0], d), (node.input[1], gr)]
 
-            fts = set(t for _, t in bad if t in (F32, F16))
-            if len(fts) > 1:
+            if len(set(t for _, t in bad)) > 1:
                 mismatches.append({"idx": i, "node": node, "inputs": bad})
         return mismatches
 
     # --- Step 4: Choose target type and insert Cast nodes ---
     def choose_target(node, inputs):
-        if node.op_type in ELEM:
-            return F32 if F32 in [t for _, t in inputs] else F16
-        elif node.op_type in (SCATTER, GRID, WHERE):
-            return inputs[0][1] if inputs else F16
-        elif node.op_type in COMPARE:
-            return F32 if F32 in [t for _, t in inputs] else F16
+        if node.op_type in ELEM | COMPARE:
+            return F32 if any(t == F32 for _, t in inputs) else F16
         elif node.op_type == "Concat":
             counts = {}
             for _, t in inputs:
                 counts[t] = counts.get(t, 0) + 1
             return max(counts, key=counts.get) if counts else F16
-        return F16
-
-    from onnx import helper
+        return inputs[0][1] if inputs else F16
 
     counter = [0]
-
     def fix_pass(g, types, mismatches):
         inserts = []
         rewires = {}
         for m in mismatches:
-            node = m["node"]
-            target = choose_target(node, m["inputs"])
+            node, target = m["node"], choose_target(m["node"], m["inputs"])
             for inp_name, inp_type in m["inputs"]:
                 if inp_type not in (F32, F16) or inp_type == target:
                     continue
@@ -2496,31 +2417,28 @@ def _fix_fp16_type_mismatches(model):
                 cast_node = helper.make_node("Cast", [inp_name], [new_name], name=f"/FixCast_{counter[0]}")
                 cast_node.attribute.append(helper.make_attribute("to", target))
                 types[new_name] = target
-                # Find producer index
-                pidx = None
-                for j, n in enumerate(g.node):
-                    if inp_name in n.output:
-                        pidx = j
-                        break
+                
+                pidx = next((j for j, n in enumerate(g.node) if inp_name in n.output), None)
                 if pidx is not None:
                     inserts.append((pidx, cast_node))
+                
                 for k, ni in enumerate(node.input):
                     if ni == inp_name:
                         rewires[(id(node), k)] = new_name
-                        break
 
-        for m in mismatches:
-            node = m["node"]
-            for key, nn in rewires.items():
-                if key[0] == id(node):
-                    node.input[key[1]] = nn
+        for key, nn in rewires.items():
+            node_id, k = key
+            # Find and update node input
+            for node in g.node:
+                if id(node) == node_id:
+                    node.input[k] = nn
+                    break
 
         inserts.sort(key=lambda x: x[0], reverse=True)
         for idx, cn in inserts:
             g.node.insert(idx + 1, cn)
         return len(inserts)
 
-    # Iterate until no mismatches
     total = 0
     for _ in range(20):
         types = infer_types(graph)
@@ -2531,138 +2449,6 @@ def _fix_fp16_type_mismatches(model):
 
     return total
 
-
-def _compute_shape_node_block_list(network_path: str) -> typing.Set[str]:
-    """Compute the set of node names that participate in dynamic shape
-    computation (auto-padding, slicing indices, etc).
-
-    These nodes must stay in fp32 during fp32->fp16 conversion, otherwise
-    onnxruntime cannot constant-fold the shape computation on CPU
-    (no fp16 CPU kernels), leaving the network output shape unresolved.
-    """
-    import onnx
-    import onnx.shape_inference
-    from onnx import TensorProto
-
-    model = onnx.load(network_path, load_external_data=False)
-
-    try:
-        inferred = onnx.shape_inference.infer_shapes(model)
-    except Exception:
-        return set()
-
-    tinfo = {}
-    for vi in list(inferred.graph.value_info) + list(inferred.graph.output):
-        tt = vi.type.tensor_type
-        dims = [d.dim_value for d in tt.shape.dim]
-        tinfo[vi.name] = (tt.elem_type, dims)
-
-    block_list = set()
-    int_types = (
-        TensorProto.INT64, TensorProto.INT32, TensorProto.BOOL,
-        TensorProto.UINT8, TensorProto.INT8, TensorProto.UINT32, TensorProto.INT16,
-    )
-    for node in inferred.graph.node:
-        if not node.output:
-            continue
-        out = node.output[0]
-        if out not in tinfo:
-            continue
-        elem_type, dims = tinfo[out]
-        if elem_type in int_types:
-            block_list.add(node.name)
-        elif elem_type in (TensorProto.FLOAT, TensorProto.DOUBLE):
-            # small float tensors (rank < 4) => scalar / shape computation
-            if len(dims) < 4:
-                block_list.add(node.name)
-            elif all(d > 0 for d in dims) and math.prod(dims) <= 64:
-                block_list.add(node.name)
-
-    return block_list
-
-
-def _drba_fp16_shape_block_list(network_path: str):
-    """Shape-protection block list for DRBA's auto-padding ('_ap') models.
-
-    Only these models need it: their dynamic-shape (auto-padding)
-    computation breaks under a generic fp32->fp16 conversion. Other models
-    (RIFE, non-ap DRBA, ...) return None so their previous behaviour is
-    preserved. Any failure also falls back to None (no regression).
-    """
-    try:
-        if "drba" in network_path.lower() and "_ap" in network_path.lower():
-            return _compute_shape_node_block_list(network_path)
-    except Exception:
-        pass
-    return None
-
-
-def _get_fp16_network(network_path: str) -> typing.Optional[str]:
-    """Convert a fp32 onnx network to fp16 (fp16 io), keeping the dynamic
-    shape computation subgraph in fp32.
-
-    Returns the path to the converted network, or None on failure.
-    The result is cached on disk (next to the original model when writable,
-    otherwise in the system temp directory).
-    """
-    try:
-        mtime = int(os.path.getmtime(network_path))
-    except OSError:
-        return None
-
-    suffix = f"_{mtime:x}_autofp16.onnx"
-    candidates = [
-        f"{network_path}{suffix}",
-        os.path.join(tempfile.gettempdir(), os.path.basename(network_path) + suffix)
-    ]
-
-    for target_network_path in candidates:
-        if os.access(target_network_path, mode=os.R_OK) and os.path.getsize(target_network_path) >= 1024:
-            return target_network_path
-
-    try:
-        from onnxconverter_common.float16 import convert_float_to_float16, DEFAULT_OP_BLOCK_LIST
-    except ImportError:
-        try:
-            import logging
-            from modelopt.onnx.autocast import convert_to_f16
-        except ImportError:
-            return None
-
-    import onnx
-
-    for target_network_path in candidates:
-        try:
-            model = onnx.load(network_path, load_external_data=False)
-
-            try:
-                from onnxconverter_common.float16 import convert_float_to_float16, DEFAULT_OP_BLOCK_LIST
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore")
-                    model = convert_float_to_float16(
-                        model,
-                        keep_io_types=False,
-                        op_block_list=set(DEFAULT_OP_BLOCK_LIST) | {"GridSample"},
-                        node_block_list=_compute_shape_node_block_list(network_path)
-                    )
-            except ImportError:
-                # fallback: modelopt autocast (no node block list support)
-                import logging
-                from modelopt.onnx.autocast import convert_to_f16, configure_logging
-                configure_logging(logging.ERROR)
-                model = convert_to_f16(model, keep_io_types=False)
-
-            _fix_fp16_type_mismatches(model)
-            onnx.save(model, target_network_path)
-            return target_network_path
-        except PermissionError:
-            continue
-        except Exception:
-            return None
-
-    return None
-
-
 def convert_model(
     network_path: str,
     target_network_path: str,
@@ -2670,7 +2456,6 @@ def convert_model(
     bf16: bool = False,
     input_format: int = 0,
     output_format: int = 0,
-    node_block_list: typing.Optional[typing.Set[str]] = None,
 ):
 
     if not any((fp16, bf16)):
@@ -2690,10 +2475,7 @@ def convert_model(
         from onnxconverter_common.float16 import convert_float_to_float16
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            kwargs = {}
-            if node_block_list:
-                kwargs["node_block_list"] = node_block_list
-            model = convert_float_to_float16(model, keep_io_types=not fp16_io, **kwargs)
+            model = convert_float_to_float16(model, keep_io_types=not fp16_io)
     except Exception:
         import logging
         from modelopt.onnx.autocast import convert_to_f16, configure_logging
@@ -2822,7 +2604,6 @@ def trtexec(
             bf16=bf16,
             input_format=input_format,
             output_format=output_format,
-            node_block_list=_drba_fp16_shape_block_list(network_path),
         )
         network_path = target_network_path
 
@@ -3172,8 +2953,7 @@ def tensorrt_rtx(
                 target_network_path=fp16_network_path,
                 fp16=True,
                 input_format=int(fp16_io),
-                output_format=int(fp16_io),
-                node_block_list=_drba_fp16_shape_block_list(network_path),
+                output_format=int(fp16_io)
             )
         network_path = fp16_network_path
     elif fp16_io:
