@@ -287,8 +287,8 @@ class Backend:
 
         use_cudnn: bool = False
         use_edge_mask_convolutions: bool = True
-        # use_jit_convolutions: bool = True
-        # output_format: int = 0 # 0: fp32, 1: fp16
+        use_jit_convolutions: bool = True
+        output_format: int = 0 # 0: fp32, 1: fp16
         builder_optimization_level: int = 3
         max_aux_streams: typing.Optional[int] = None
         short_path: typing.Optional[bool] = None # True on Windows by default, False otherwise
@@ -1518,7 +1518,6 @@ def DRBAMerge(
         overlap_w=overlap_w, overlap_h=overlap_h
     )
 
-    # ap variants use internal padding
     if not ap:
         if tile_w % multiple != 0 or tile_h % multiple != 0:
             raise ValueError(
@@ -1530,13 +1529,11 @@ def DRBAMerge(
         trt_opt_shapes=(tile_w, tile_h)
     )
 
-    output = inference_with_fallback(
+    return inference_with_fallback(
         clips=clips, network_path=network_path,
         overlap=(overlap_w, overlap_h), tilesize=(tile_w, tile_h),
         backend=backend,
     )
-
-    return output
 
 
 def DRBA(
@@ -1624,6 +1621,8 @@ def DRBA(
                 return output0
             interpolated = core.std.FrameEval(output0, handler, img1)
 
+        clip = bits_as(clip, output0)
+
         if multi == 2:
             res = core.std.Interleave([clip, interpolated])
         else:
@@ -1663,7 +1662,6 @@ def DRBA(
             img1_clip = core.std.FrameEval(temp, img1_func)
 
             def img2_func(n: int) -> vs.VideoNode:
-                # no out of range access because of function filter_sc
                 return clip[dst_duration * n // src_duration + 1]
             img2_clip = core.std.FrameEval(temp, img2_func)
 
@@ -2295,159 +2293,6 @@ def get_engine_path(
     else:
         return f"{os.path.join(dirname, basename)}.{identity}.engine"
 
-from onnx import helper
-
-
-def _fix_fp16_type_mismatches(model):
-    """Fix FP16 type mismatches for TensorRT strong typing."""
-    F32, F16 = 1, 10
-    ELEM = {"Mul", "Add", "Sub", "Div", "Max", "Min", "Pow", "Mod"}
-    SCATTER = {"ScatterND", "ScatterElements"}
-    WHERE = {"Where", "Select"}
-    GRID = {"GridSample"}
-    COMPARE = {"Less", "LessOrEqual", "Greater", "GreaterOrEqual", "Equal"}
-    UNIFORM_OPS = ELEM | COMPARE | {"Concat"}
-
-    graph = model.graph
-    producers = {out: node for node in graph.node for out in node.output if out}
-
-    # --- Step 1: Revert precision-sensitive Casts to FP32 ---
-    revert_nodes = set()
-    for node in graph.node:
-        if node.op_type == "Reciprocal" and node.input:
-            src = producers.get(node.input[0])
-            if src and src.op_type == "Cast":
-                revert_nodes.add(id(src))
-        elif node.op_type == "Cast" and node.input:
-            src = producers.get(node.input[0])
-            if src and src.op_type == "Range":
-                revert_nodes.add(id(node))
-
-    for node in graph.node:
-        if id(node) in revert_nodes:
-            for attr in node.attribute:
-                if attr.name == "to":
-                    attr.i = F32
-
-    # --- Step 2: Type inference ---
-    def infer_types(g):
-        types = {inp.name: inp.type.tensor_type.elem_type for inp in g.input if inp.type.tensor_type.elem_type}
-        types.update({init.name: init.data_type for init in g.initializer})
-        
-        for node in g.node:
-            if node.op_type == "Constant":
-                for a in node.attribute:
-                    if a.name == "value":
-                        types[node.output[0]] = a.t.data_type
-            elif node.op_type == "Cast":
-                for a in node.attribute:
-                    if a.name == "to":
-                        types[node.output[0]] = a.i
-            elif node.op_type == "ConstantOfShape":
-                for a in node.attribute:
-                    if a.name == "value" and a.t.data_type:
-                        types[node.output[0]] = a.t.data_type
-
-        for _ in range(30):
-            changed = False
-            for node in g.node:
-                if not node.output or types.get(node.output[0]) is not None:
-                    continue
-                out = node.output[0]
-                if node.op_type in ELEM:
-                    fts = [types[i] for i in node.input if i in types and types[i] in (F32, F16)]
-                    if fts:
-                        types[out] = fts[0]
-                        changed = True
-                else:
-                    di = 1 if node.op_type in WHERE else 0
-                    if di < len(node.input) and node.input[di] in types:
-                        types[out] = types[node.input[di]]
-                        changed = True
-            if not changed:
-                break
-        return types
-
-    # --- Step 3: Find type mismatches ---
-    def find_mismatches(g, types):
-        mismatches = []
-        for i, node in enumerate(g.node):
-            bad = []
-            if node.op_type in UNIFORM_OPS:
-                bad = [(inp, types[inp]) for inp in node.input if inp and types.get(inp) in (F32, F16)]
-            elif node.op_type in SCATTER and len(node.input) >= 3:
-                d, u = types.get(node.input[0]), types.get(node.input[2])
-                if d in (F32, F16) and u in (F32, F16) and d != u:
-                    bad = [(node.input[0], d), (node.input[2], u)]
-            elif node.op_type in WHERE and len(node.input) >= 3:
-                x, y = types.get(node.input[1]), types.get(node.input[2])
-                if x in (F32, F16) and y in (F32, F16) and x != y:
-                    bad = [(node.input[1], x), (node.input[2], y)]
-            elif node.op_type in GRID and len(node.input) >= 2:
-                d, gr = types.get(node.input[0]), types.get(node.input[1])
-                if d in (F32, F16) and gr in (F32, F16) and d != gr:
-                    bad = [(node.input[0], d), (node.input[1], gr)]
-
-            if len(set(t for _, t in bad)) > 1:
-                mismatches.append({"idx": i, "node": node, "inputs": bad})
-        return mismatches
-
-    # --- Step 4: Choose target type and insert Cast nodes ---
-    def choose_target(node, inputs):
-        if node.op_type in ELEM | COMPARE:
-            return F32 if any(t == F32 for _, t in inputs) else F16
-        elif node.op_type == "Concat":
-            counts = {}
-            for _, t in inputs:
-                counts[t] = counts.get(t, 0) + 1
-            return max(counts, key=counts.get) if counts else F16
-        return inputs[0][1] if inputs else F16
-
-    counter = [0]
-    def fix_pass(g, types, mismatches):
-        inserts = []
-        rewires = {}
-        for m in mismatches:
-            node, target = m["node"], choose_target(m["node"], m["inputs"])
-            for inp_name, inp_type in m["inputs"]:
-                if inp_type not in (F32, F16) or inp_type == target:
-                    continue
-                counter[0] += 1
-                new_name = f"/FixCast_{counter[0]}_output_0"
-                cast_node = helper.make_node("Cast", [inp_name], [new_name], name=f"/FixCast_{counter[0]}")
-                cast_node.attribute.append(helper.make_attribute("to", target))
-                types[new_name] = target
-                
-                pidx = next((j for j, n in enumerate(g.node) if inp_name in n.output), None)
-                if pidx is not None:
-                    inserts.append((pidx, cast_node))
-                
-                for k, ni in enumerate(node.input):
-                    if ni == inp_name:
-                        rewires[(id(node), k)] = new_name
-
-        for key, nn in rewires.items():
-            node_id, k = key
-            # Find and update node input
-            for node in g.node:
-                if id(node) == node_id:
-                    node.input[k] = nn
-                    break
-
-        inserts.sort(key=lambda x: x[0], reverse=True)
-        for idx, cn in inserts:
-            g.node.insert(idx + 1, cn)
-        return len(inserts)
-
-    total = 0
-    for _ in range(20):
-        types = infer_types(graph)
-        mismatches = find_mismatches(graph, types)
-        if not mismatches:
-            break
-        total += fix_pass(graph, types, mismatches)
-
-    return total
 
 def convert_model(
     network_path: str,
@@ -2456,6 +2301,7 @@ def convert_model(
     bf16: bool = False,
     input_format: int = 0,
     output_format: int = 0,
+    op_block_list: list = [],
 ):
 
     if not any((fp16, bf16)):
@@ -2475,15 +2321,12 @@ def convert_model(
         from onnxconverter_common.float16 import convert_float_to_float16
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            model = convert_float_to_float16(model, keep_io_types=not fp16_io)
+            model = convert_float_to_float16(model, keep_io_types=not fp16_io, op_block_list=op_block_list)
     except Exception:
         import logging
         from modelopt.onnx.autocast import convert_to_f16, configure_logging
         configure_logging(logging.ERROR)
-        model = convert_to_f16(model, keep_io_types=not fp16_io)
-
-    _fix_fp16_type_mismatches(model)
-
+        model = convert_to_f16(model, keep_io_types=not fp16_io, op_block_list=op_block_list)
     onnx.save(model, target_network_path)
 
 
@@ -2946,6 +2789,15 @@ def tensorrt_rtx(
             os.makedirs(engine_folder, exist_ok=True)
             dirname = engine_folder
 
+        rt_op_block_list = []
+        bl = basename.lower()
+        if "rife" in bl:
+            for p in bl.replace(".onnx", "").split("_"):
+                if p.startswith("v") and "." in p:
+                    ver = int(p[1:].replace(".", ""))
+                    if ver < 47:
+                        rt_op_block_list = ["Resize", "Range"]
+                    break
         fp16_network_path = f"{os.path.join(dirname, basename)}_{checksum}_fp16{'_io' if fp16_io else ''}.onnx"
         if not (os.access(fp16_network_path, mode=os.R_OK) and os.path.getsize(fp16_network_path) >= 1024):
             convert_model(
@@ -2953,7 +2805,8 @@ def tensorrt_rtx(
                 target_network_path=fp16_network_path,
                 fp16=True,
                 input_format=int(fp16_io),
-                output_format=int(fp16_io)
+                output_format=int(fp16_io),
+                op_block_list=rt_op_block_list
             )
         network_path = fp16_network_path
     elif fp16_io:

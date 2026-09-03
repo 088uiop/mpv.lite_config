@@ -32,7 +32,8 @@ local vs = {
                 abs = 'False',
                 fmax = '30',
                 sc = 'True',
-                gpu = '0'
+                gpu = '0',
+                static = 'False'
             }
         },
         drba = {
@@ -48,7 +49,8 @@ local vs = {
                 abs = 'False',
                 fmax = '30',
                 sc = 'False',
-                gpu = '0'
+                gpu = '0',
+                static = 'False'
             }
         },
         realesrgan = {
@@ -63,7 +65,8 @@ local vs = {
                 hlim = '1080',
                 wmax = '3840',
                 hmax = '2160',
-                gpu = '0'
+                gpu = '0',
+                static = 'False'
             }
         },
         uai = {
@@ -78,7 +81,8 @@ local vs = {
                 hlim = '1080',
                 wmax = '3840',
                 hmax = '2160',
-                gpu = '0'
+                gpu = '0',
+                static = 'False'
             }
         }
     }
@@ -95,7 +99,7 @@ local main_menu = {
         { title = '添加 DRBA', value = 'add drba' },
         { title = '添加 RealESRGAN', value = 'add realesrgan' },
         { title = '添加 UAI', value = 'add uai' },
-        { title = '非实时处理当前视频', value = 'process_video' },
+        { title = '非实时处理当前视频', value = 'process' },
         { title = '输入帧率修正', value = 'show finset' },
         { title = '配置菜单', value = 'show settings', actions = { { name = 'toggle_preset', icon = 'lock_open', label = '禁用' } } }
     }
@@ -167,9 +171,9 @@ local settings_menu = {
                 {
                     title = '后端',
                     items = {
-                        { title = 'DML',     value = 'set rife be "ort_dml"' },
-                        { title = 'TRT',     value = 'set rife be "trt"' },
-                        { title = 'TRT_RTX', value = 'set rife be "trt_rtx"' }
+                        { title = 'DML', value = 'set rife be "ort_dml"' },
+                        { title = 'TRT', value = 'set rife be "trt"', actions = { { name = 'toggle_static', icon = 'toggle_off', label = '静态引擎开关' } } },
+                        { title = 'TRT_RTX', value = 'set rife be "trt_rtx"', actions = { { name = 'toggle_static', icon = 'toggle_off', label = '静态引擎开关' } } }
                     }
                 },
                 {
@@ -231,9 +235,9 @@ local settings_menu = {
                 {
                     title = '后端',
                     items = {
-                        { title = 'DML',     value = 'set drba be "ort_dml"' },
-                        { title = 'TRT',     value = 'set drba be "trt"' },
-                        { title = 'TRT_RTX', value = 'set drba be "trt_rtx"' }
+                        { title = 'DML', value = 'set drba be "ort_dml"' },
+                        { title = 'TRT', value = 'set drba be "trt"', actions = { { name = 'toggle_static', icon = 'toggle_off', label = '静态引擎开关' } } },
+                        { title = 'TRT_RTX', value = 'set drba be "trt_rtx"', actions = { { name = 'toggle_static', icon = 'toggle_off', label = '静态引擎开关' } } }
                     }
                 },
                 {
@@ -293,9 +297,9 @@ local settings_menu = {
                 {
                     title = '后端',
                     items = {
-                        { title = 'DML',     value = 'set realesrgan be "ort_dml"' },
-                        { title = 'TRT',     value = 'set realesrgan be "trt"' },
-                        { title = 'TRT_RTX', value = 'set realesrgan be "trt_rtx"' }
+                        { title = 'DML', value = 'set realesrgan be "ort_dml"' },
+                        { title = 'TRT', value = 'set realesrgan be "trt"', actions = { { name = 'toggle_static', icon = 'toggle_off', label = '静态引擎开关' } } },
+                        { title = 'TRT_RTX', value = 'set realesrgan be "trt_rtx"', actions = { { name = 'toggle_static', icon = 'toggle_off', label = '静态引擎开关' } } }
                     }
                 },
                 {
@@ -349,9 +353,9 @@ local settings_menu = {
                 {
                     title = '后端',
                     items = {
-                        { title = 'DML',     value = 'set uai be "ort_dml"' },
-                        { title = 'TRT',     value = 'set uai be "trt"' },
-                        { title = 'TRT_RTX', value = 'set uai be "trt_rtx"' }
+                        { title = 'DML', value = 'set uai be "ort_dml"' },
+                        { title = 'TRT', value = 'set uai be "trt"', actions = { { name = 'toggle_static', icon = 'toggle_off', label = '静态引擎开关' } } },
+                        { title = 'TRT_RTX', value = 'set uai be "trt_rtx"', actions = { { name = 'toggle_static', icon = 'toggle_off', label = '静态引擎开关' } } }
                     }
                 },
                 {
@@ -427,7 +431,7 @@ local function clear()
     end
 end
 
-local function update(fin, no_osd)
+local function update(no_osd, fin)
     mp.set_property_native("user-data/vs", vs)
     local tags = {}
     for _, mode in ipairs(vs.state) do table.insert(tags, vs.modes[mode].label) end
@@ -452,6 +456,10 @@ local function update(fin, no_osd)
                 local acitve = true
                 local args = parse_command(item.value)
                 for _, arg in ipairs(args) do
+                    if arg[4]:find("trt") then
+                        local static = vs.modes[arg[2]].settings.static == "True"
+                        item.actions[1].icon = static and "toggle_on" or "toggle_off"
+                    end
                     if vs.modes[arg[2]].settings[arg[3]] ~= arg[4] then
                         acitve = false
                         break
@@ -492,6 +500,32 @@ local function update(fin, no_osd)
     for i, mode in ipairs(vs.state) do
         mp.commandv("vf", "add", "@VS" .. i .. ":vapoursynth:file=" .. vs.modes[mode].path)
     end
+end
+
+local function clear_mode()
+    vs.state = {}
+    clear()
+    update()
+end
+
+local function add_mode(mode)
+    table.insert(vs.state, mode)
+    update()
+end
+
+local function set_mode(mode, key, value)
+    vs.modes[mode].settings[key] = value
+    clear()
+    update(true)
+end
+
+local function show_menu(menu)
+    local menus = {
+        settings = settings_menu,
+        finset = finset_menu
+    }
+    if menu == "settings" and not vs.preset then return end
+    mp.commandv("script-message-to", "uosc", "open-menu", utils.format_json(menus[menu] or main_menu))
 end
 
 local function convert_vpy(file_path)
@@ -590,38 +624,12 @@ local function encode_video()
     os.remove(video_path .. ".lwi")
 end
 
-local function clear_mode()
-    vs.state = {}
-    clear()
-    update()
-end
-
-local function add_mode(mode)
-    table.insert(vs.state, mode)
-    update()
-end
-
-local function set_mode(mode, key, value)
-    vs.modes[mode].settings[key] = value
-    clear()
-    update(nil, true)
-end
-
-local function show_menu(menu)
-    local menus = {
-        settings = settings_menu,
-        finset = finset_menu
-    }
-    if menu == "settings" and not vs.preset then return end
-    mp.commandv("script-message-to", "uosc", "open-menu", utils.format_json(menus[menu] or main_menu))
-end
-
 local functions = {
     clear = clear_mode,
     add = add_mode,
     set = set_mode,
     show = show_menu,
-    process_video = encode_video
+    process = encode_video
 }
 
 local function init(_, loaded)
@@ -635,7 +643,7 @@ local function init(_, loaded)
     end
     local saved = mp.get_property_native("user-data/vs")
     if saved then vs = saved end
-    update("container_fps", true)
+    update(true, "container_fps")
     mp.register_event("file-loaded", function()
         for _, item in ipairs(finset_menu.items) do
             if item.title == "当前输入帧率: " then
@@ -647,7 +655,7 @@ local function init(_, loaded)
         local event = utils.parse_json(json)
         if event.action == "toggle_preset" then
             vs.preset = not vs.preset
-            update()
+            update(true)
         elseif event.value then
             local args = parse_command(event.value)
             for _, arg in ipairs(args) do
@@ -660,8 +668,15 @@ local function init(_, loaded)
         local event = utils.parse_json(json)
         if event.value then
             local args = parse_command(event.value)
-            for _, arg in ipairs(args) do
-                functions[arg[1]](arg[2], arg[3], arg[4])
+            if event.action == "toggle_static" then
+                for _, arg in ipairs(args) do
+                    local value = vs.modes[arg[2]].settings.static == "True" and "False" or "True"
+                    set_mode(arg[2], "static", value)
+                end
+            else
+                for _, arg in ipairs(args) do
+                    functions[arg[1]](arg[2], arg[3], arg[4])
+                end
             end
         end
         mp.commandv("script-message-to", "uosc", "update-menu", utils.format_json(settings_menu))
@@ -671,7 +686,7 @@ local function init(_, loaded)
         if event.type == "activate" and finset_menu.items[event.index].title == "重置为视频默认" then
             clear()
             findef = false
-            update("container_fps")
+            update(true, "container_fps")
             for _, item in ipairs(finset_menu.items) do
                 if item.title == "当前输入帧率: " then item.hint = mp.get_property("container-fps") or "无数据" end
             end
@@ -679,18 +694,22 @@ local function init(_, loaded)
         elseif event.type == "search" then
             clear()
             findef = true
-            update(event.query)
+            update(true, event.query)
             for _, item in ipairs(finset_menu.items) do
                 if item.title == "当前输入帧率: " then item.hint = event.query end
             end
             mp.commandv("script-message-to", "uosc", "open-menu", utils.format_json(finset_menu))
         end
     end)
-    mp.register_script_message("vs_process_video", encode_video)
-    mp.register_script_message("show_vs_main_menu", show_menu)
+    mp.register_script_message("toggle_vs_preset", function()
+        vs.preset = not vs.preset
+        update(true)
+    end)
     mp.register_script_message("clear_vs_mode", clear_mode)
     mp.register_script_message("add_vs_mode", add_mode)
     mp.register_script_message("set_vs_mode", set_mode)
+    mp.register_script_message("show_vs_main_menu", show_menu)
+    mp.register_script_message("vs_process_video", encode_video)
     mp.unobserve_property(init)
 end
 
