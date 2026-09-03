@@ -21,12 +21,15 @@ hmax = 2160
 ## 使用的显卡序号，0为排序一号
 gpu = 0
 
+## <True|False> trt/trt_rtx后端使用静态引擎
+static = False
+
 ## <True|False> 锁定像素格式为yuv420p8
 lkfmt = False
 
 clip = video_in
 clip = k7sfunc.FMT_LIMIT(clip, wlim, hlim)
 clip = k7sfunc.FMT_DSCALE(clip, wpre, hpre, lkfmt)
-clip = k7sfunc.UAI(clip, be, model, gpu)
+clip = k7sfunc.UAI(clip, be, model, gpu, static)
 clip = k7sfunc.FMT_DSCALE(clip, wmax, hmax, lkfmt)
 clip.set_output()

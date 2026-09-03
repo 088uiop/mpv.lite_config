@@ -37,7 +37,9 @@ def FMT_DSCALE(
 
 
 def FMT_LIMIT(
-    input: vs.VideoNode, w_max: int = 1920, h_max: int = 1080
+    input: vs.VideoNode,
+    w_max: int = 1920,
+    h_max: int = 1080,
 ) -> vs.VideoNode:
     if input.width > w_max or input.height > h_max:
         raise Exception("源分辨率超过限制范围")
@@ -45,7 +47,9 @@ def FMT_LIMIT(
 
 
 def FPS_LIMIT(
-    input: vs.VideoNode, fps_in: float = 23.976, fps_max: float = 47.952
+    input: vs.VideoNode,
+    fps_in: float = 23.976,
+    fps_max: float = 47.952,
 ) -> vs.VideoNode:
     if fps_in > fps_max:
         raise Exception("源帧率超过限制范围")
@@ -102,22 +106,41 @@ def SVP(
     )
 
 
-def get_backend(be: str, gpu: int = 0):
+def get_backend(
+    w_in: int = 0,
+    h_in: int = 0,
+    be: str = "ort_dml",
+    gpu: int = 0,
+    static: bool = True,
+):
+    if not static and (w_in < 384 or h_in < 384 or w_in > 4096 or h_in > 2176):
+        raise Exception("源分辨率不属于动态引擎支持的范围")
     backend_configs = {
         "ort_dml": lambda: vsmlrt.BackendV2.ORT_DML(
             num_streams=2,
             fp16=True,
+            output_format=1,
             device_id=gpu,
         ),
         "trt": lambda: vsmlrt.BackendV2.TRT(
             num_streams=2,
             fp16=True,
             output_format=1,
+            static_shape=static,
+            min_shapes=[0, 0] if static else [384, 384],
+            opt_shapes=None if static else [1920, 1152],
+            max_shapes=None if static else [4096, 2176],
+            use_cuda_graph=True,
             device_id=gpu,
         ),
         "trt_rtx": lambda: vsmlrt.BackendV2.TRT_RTX(
             num_streams=2,
             fp16=True,
+            output_format=1,
+            static_shape=static,
+            min_shapes=[0, 0] if static else [384, 384],
+            opt_shapes=None if static else [1920, 1152],
+            max_shapes=None if static else [4096, 2176],
             use_cuda_graph=True,
             device_id=gpu,
         ),
@@ -135,12 +158,12 @@ def RIFE(
     fps_den: int = 1,
     sc_mode: bool = True,
     gpu: int = 0,
+    static: bool = True,
 ) -> vs.VideoNode:
     import fractions
 
     fmt_in = input.format.id
     colorlv = getattr(input.get_frame(0).props, "_ColorRange", 0)
-    backend = get_backend(be, gpu)
     clip = vs.core.misc.SCDetect(clip=input, threshold=0.15) if sc_mode else input
     clip = vs.core.resize.Bilinear(clip, format=vs.RGBH, matrix_in_s="709")
     if abs:
@@ -156,7 +179,13 @@ def RIFE(
         model=model,
         video_player=True,
         _implementation=2,
-        backend=backend,
+        backend=get_backend(
+            w_in=input.width,
+            h_in=input.height,
+            be=be,
+            gpu=gpu,
+            static=static,
+        ),
     )
     out = vs.core.resize.Bilinear(
         fin, format=fmt_in, matrix_s="709", range=1 if colorlv == 0 else None
@@ -174,12 +203,12 @@ def DRBA(
     fps_den: int = 1,
     sc_mode: bool = True,
     gpu: int = 0,
+    static: bool = True,
 ) -> vs.VideoNode:
     import fractions
 
     fmt_in = input.format.id
     colorlv = getattr(input.get_frame(0).props, "_ColorRange", 0)
-    backend = get_backend(be, gpu)
     clip = vs.core.misc.SCDetect(clip=input, threshold=0.15) if sc_mode else input
     clip = vs.core.resize.Bilinear(clip, format=vs.RGBH, matrix_in_s="709")
     if abs:
@@ -195,7 +224,13 @@ def DRBA(
         ap=True,
         model=model,
         video_player=True,
-        backend=backend,
+        backend=get_backend(
+            w_in=input.width,
+            h_in=input.height,
+            be=be,
+            gpu=gpu,
+            static=static,
+        ),
     )
     out = vs.core.resize.Bilinear(
         fin, format=fmt_in, matrix_s="709", range=1 if colorlv == 0 else None
@@ -208,13 +243,22 @@ def RealESRGAN(
     be: str = "ort_dml",
     model: int = 5008,
     gpu: int = 0,
+    static: bool = True,
 ) -> vs.VideoNode:
-    backend = get_backend(be, gpu)
-
     fmt_in = input.format.id
     colorlv = getattr(input.get_frame(0).props, "_ColorRange", 0)
     clip = vs.core.resize.Bilinear(input, format=vs.RGBH, matrix_in_s="709")
-    res = vsmlrt.RealESRGAN(clip=clip, model=model, backend=backend)
+    res = vsmlrt.RealESRGAN(
+        clip=clip,
+        model=model,
+        backend=get_backend(
+            w_in=input.width,
+            h_in=input.height,
+            be=be,
+            gpu=gpu,
+            static=static,
+        ),
+    )
     return vs.core.resize.Bilinear(
         res, format=fmt_in, matrix_s="709", range=1 if colorlv == 0 else None
     )
@@ -225,13 +269,14 @@ def UAI(
     be: str = "ort_dml",
     model_pth: str = "",
     gpu: int = 0,
+    static: bool = True,
 ) -> vs.VideoNode:
     import os
     import onnx
 
-    backend = get_backend(be, gpu)
+    fmt_in = input.format.id
+    colorlv = getattr(input.get_frame(0).props, "_ColorRange", 0)
     be_lower = be.lower()
-
     if be_lower in ["trt", "trt_rtx"]:
         plg_dir = os.path.dirname(
             vs.core.trt_rtx.Version()["path"]
@@ -240,12 +285,8 @@ def UAI(
         ).decode()
     else:
         plg_dir = os.path.dirname(vs.core.ort.Version()["path"]).decode()
-
     mdl_pth_rel = plg_dir + "/models/uai/" + model_pth
     mdl_pth = mdl_pth_rel if os.path.exists(mdl_pth_rel) else model_pth
-
-    fmt_in = input.format.id
-    colorlv = getattr(input.get_frame(0).props, "_ColorRange", 0)
     model = onnx.load(mdl_pth)
     shape = []
     for dim in model.graph.input[0].type.tensor_type.shape.dim:
@@ -255,7 +296,17 @@ def UAI(
             shape.append(dim.dim_value if dim.dim_value > 0 else -1)
     if shape[1] == 1:
         clip_y = vs.core.resize.Point(clip=input, format=vs.GRAYH)
-        infer = vsmlrt.inference(clips=clip_y, network_path=mdl_pth, backend=backend)
+        infer = vsmlrt.inference(
+            clips=clip_y,
+            network_path=mdl_pth,
+            backend=get_backend(
+                w_in=input.width,
+                h_in=input.height,
+                be=be,
+                gpu=gpu,
+                static=static,
+            ),
+        )
         clip_uv = vs.core.resize.Bilinear(clip=input, format=vs.YUV444PH)
         output = vs.core.std.ShufflePlanes([infer, clip_uv], [0, 1, 2], vs.YUV)
         output = vs.core.resize.Bilinear(
@@ -264,7 +315,17 @@ def UAI(
         return output
     else:
         clip = vs.core.resize.Bilinear(clip=input, format=vs.RGBH, matrix_in_s="709")
-        infer = vsmlrt.inference(clips=clip, network_path=mdl_pth, backend=backend)
+        infer = vsmlrt.inference(
+            clips=clip,
+            network_path=mdl_pth,
+            backend=get_backend(
+                w_in=input.width,
+                h_in=input.height,
+                be=be,
+                gpu=gpu,
+                static=static,
+            ),
+        )
         return vs.core.resize.Bilinear(
             clip=infer, format=fmt_in, matrix_s="709", range=1 if colorlv == 0 else None
         )
