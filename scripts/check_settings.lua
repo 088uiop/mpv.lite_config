@@ -43,7 +43,7 @@ if o.save_and_load then
         file:close()
         if ok and saved then
             for _, prop in ipairs(props) do
-                if saved[prop] then mp.set_property_native(prop, saved[prop]) end
+                if saved[prop] ~= nil then mp.set_property_native(prop, saved[prop]) end
                 state[prop] = saved[prop]
             end
         end
