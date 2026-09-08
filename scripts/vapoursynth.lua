@@ -425,7 +425,7 @@ local function clear()
     mp.set_property_native("user-data/vs", vs)
     local vf = mp.get_property_native("vf")
     for _, filter in ipairs(vf) do
-        if filter.label:find("VS") then
+        if filter.label and filter.label:find("VS") then
             mp.commandv("vf", "remove", "@" .. filter.label)
         end
     end
