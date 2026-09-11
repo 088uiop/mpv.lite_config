@@ -260,9 +260,9 @@ local function assprocess()
     end)
 end
 
-local function add_delay(value)
+local function add_delay(value, no_osd)
     danmaku_delay = danmaku_delay + tonumber(value)
-    mp.osd_message("当前弹幕延迟: " .. (danmaku_delay > 0 and "+" or "") .. danmaku_delay .. "s")
+    if not no_osd then mp.osd_message("当前弹幕延迟: " .. (danmaku_delay > 0 and "+" or "") .. danmaku_delay .. "s") end
     if form == "osd" then
         mp.commandv("script-message", "danmaku-delay", 0)
         mp.commandv("script-message", "danmaku-delay", danmaku_delay)
@@ -290,7 +290,11 @@ local function toggle_form(value, init)
         start_overlay()
     end
     if init then return end
-    assprocess()
+    set_uosc_danmaku(true, function()
+        mp.commandv("script-message", "danmaku-delay", 0)
+        add_delay(0, true)
+        mp.add_timeout(0.2, assprocess)
+    end)
 end
 
 local function toggle_visibility()
