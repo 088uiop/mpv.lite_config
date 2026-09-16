@@ -933,7 +933,6 @@ mp.register_script_message("open_source_delay_menu", open_delay_menu)
 mp.register_script_message("open_search_danmaku_menu", open_input_menu)
 mp.register_script_message("open_add_source_menu", open_add_menu)
 mp.register_script_message("open_add_total_menu", open_add_total_menu)
-
 -- ssdm support --
 local _options = options
 options = {}
@@ -946,7 +945,54 @@ setmetatable(options, {
         mp.commandv("script-message-to", "ssdm", "danmaku_refresh")
     end
 })
-mp.register_script_message("send_data", function()
-    local data = { enabled = ENABLED, comments = COMMENTS, options = _options }
-    mp.commandv("script-message-to", "ssdm", "receive_data", utils.format_json(data))
+mp.register_script_message("ssdm_show_danmaku", function(state)
+    ENABLED = state == "true"
+    if ENABLED then
+        show_danmaku_func()
+    else
+        hide_danmaku_func()
+    end
+end)
+mp.register_script_message("ssdm_set_delay", function(delay)
+    if not ENABLED then
+        local _render = render
+        render = function() end
+        mp.add_timeout(0.2, function() render = _render end)
+    end
+    local _show_message = show_message
+    show_message = function() end
+    set_danmaku_delay(0)
+    set_danmaku_delay(tonumber(delay))
+    show_message = _show_message
+end)
+mp.register_script_message("ssdm_load_danmaku", function(k)
+    local prev_enabled = ENABLED
+    local _render_danmaku = render_danmaku
+    local _show_message = show_message
+    render_danmaku = function() end
+    show_message = function() end
+    ENABLED = true
+    if COMMENTS == nil or #COMMENTS == 0 then
+        init(mp.get_property("path"))
+    end
+    local function finish()
+        render_danmaku = _render_danmaku
+        show_message = _show_message
+        ENABLED = prev_enabled
+        if k ~= "r" and COMMENTS and #COMMENTS > 0 then
+            show_message("弹幕加载成功，共计" .. #COMMENTS .. "条弹幕", 3)
+        end
+        local data = utils.format_json({ comments = COMMENTS, options = _options })
+        mp.commandv("script-message-to", "ssdm", "load_complete", data)
+    end
+    local tries = 0
+    local function poll()
+        tries = tries + 1
+        if (COMMENTS and #COMMENTS > 0) or tries > 50 then
+            finish()
+        else
+            mp.add_timeout(0.2, poll)
+        end
+    end
+    poll()
 end)

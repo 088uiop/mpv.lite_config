@@ -9,16 +9,13 @@ local overlay_started = false
 local overlay_connected = false
 local overlay_hdr = false
 local pad = false
-local updating_uosc_danmaku_data = false
 local show_danmaku = false
+local danmaku_loaded = false
 local danmaku_delay = 0
 local overlay_peak = "sdr"
 local pid = utils.getpid()
-local config_dir = mp.command_native({ "expand-path", "~~/" })
 local pipe_full = string.format("\\\\.\\pipe\\mpv_danmaku_%d", pid)
 local ass_path = utils.join_path(os.getenv("TEMP"), "ssdm-danmaku-" .. pid .. ".ass")
-local uosc_danmaku_main_path = config_dir .. "/scripts/uosc_danmaku/main.lua"
-local uosc_danmaku_data = { enabled = false, comments = nil, options = nil }
 
 INVALID_HANDLE = ffi.cast("void*", -1)
 ffi.cdef([[
@@ -115,6 +112,11 @@ local function overlay_hdr_peak()
     overlay_send(string.format('{"type":"set_hdr_peak","hdr_peak":%.1f}', tonumber(overlay_peak) or 400))
 end
 
+local function overlay_clear_danmaku()
+    if not overlay_connected then return end
+    overlay_send('{"type":"clear_danmaku"}')
+end
+
 local function overlay_shutdown()
     if not overlay_started then return end
     overlay_send('{"type":"shutdown"}')
@@ -136,13 +138,9 @@ local function start_overlay()
     local tries = 0
     local function tc()
         if overlay_connect() then
-            mp.add_timeout(0.2, function()
-                overlay_sync()
-                overlay_visiblility()
-                overlay_delay()
-                overlay_hdr_mode()
-                overlay_hdr_peak()
-            end)
+            overlay_sync()
+            overlay_hdr_mode()
+            overlay_hdr_peak()
         elseif tries < 50 then
             mp.add_timeout(0.2, tc)
         else
@@ -154,39 +152,11 @@ local function start_overlay()
     tc()
 end
 
-local function set_uosc_danmaku(state, callback)
-    if updating_uosc_danmaku_data then
-        mp.add_timeout(0.1, function() set_uosc_danmaku(state, callback) end)
-        return
-    end
-    if uosc_danmaku_data.enabled ~= state then
-        mp.command("script-message show_danmaku_keyboard")
-        uosc_danmaku_data.enabled = state
-    end
-    if callback then callback() end
-end
-
-local function receive_data(data)
-    uosc_danmaku_data = utils.parse_json(data)
-    updating_uosc_danmaku_data = false
-end
-
-local function get_max_sid()
-    local max_sid = 0
-    for _, track in ipairs(mp.get_property_native("track-list")) do
-        if track.type == "sub" and track.id > max_sid then
-            max_sid = track.id
-        end
-    end
-    return max_sid
-end
-
-local function process_danmaku(comments, output_file)
-    local opt = uosc_danmaku_data.options
-    if not comments or not opt then return false end
-    local fout = io.open(output_file, "w")
+local function create_ass(comments, options, output)
+    if not comments or not options then return false end
+    local fout = io.open(output, "w")
     if not fout then return false end
-    local hex = string.format("%02X", math.floor((1 - opt.opacity) * 255))
+    local hex = string.format("%02X", math.floor((1 - options.opacity) * 255))
     fout:write(
         "[Script Info]\nScriptType: v4.00+\nPlayResX: 1920\nPlayResY: 1080\nTimer: 100.0000\nWrapStyle: 2\nScaledBorderAndShadow: yes\n"
     )
@@ -195,7 +165,8 @@ local function process_danmaku(comments, output_file)
     )
     local common_style = string.format(
         "%s,%d,&H%sFFFFFF,&H%sFFFFFF,&H%s000000,&H%s000000,%s,0,0,0,100,100,0,0,1,%s,%s",
-        opt.fontname, opt.fontsize, hex, hex, hex, hex, opt.bold and "1" or "0", opt.outline, opt.shadow
+        options.fontname, options.fontsize, hex, hex, hex, hex, options.bold and "1" or "0", options.outline,
+        options.shadow
     )
     fout:write(string.format("Style: R2L,%s,7,0,0,0,1\n", common_style))
     fout:write(string.format("Style: TOP,%s,8,0,0,0,1\n", common_style))
@@ -208,7 +179,7 @@ local function process_danmaku(comments, output_file)
         local s = seconds % 60
         return string.format("%d:%02d:%05.2f", h, m, s)
     end
-    local display_range = opt.displayarea * 1080
+    local display_range = options.displayarea * 1080
     for _, event in ipairs(comments) do
         local y = 0
         if event.move then
@@ -217,7 +188,7 @@ local function process_danmaku(comments, output_file)
             y = event.pos[2]
         end
         if y <= display_range then
-            local duration = event.move and opt.scrolltime or opt.fixtime
+            local duration = event.move and options.scrolltime or options.fixtime
             local start_time = format_time(event.start_time)
             local end_time = format_time(event.start_time + duration)
             if event.move then
@@ -232,39 +203,40 @@ local function process_danmaku(comments, output_file)
     return true
 end
 
-local function assprocess()
-    if AP then AP:kill() end
-    if form == "osd" then return end
-    updating_uosc_danmaku_data = true
-    mp.commandv("script-message-to", "uosc_danmaku", "send_data")
-    set_uosc_danmaku(true, function()
-        AP = mp.add_timeout(0.2, function()
-            if mp.get_property_native("user-data/uosc_danmaku/has-danmaku") then
-                local success = process_danmaku(uosc_danmaku_data.comments, ass_path)
-                if success then
-                    set_uosc_danmaku(false, function()
-                        if form == "sub" then
-                            mp.commandv("sub-add", ass_path, "auto", "ssdm_danmaku")
-                            sid = get_max_sid()
-                            mp.set_property_number("secondary-sid", sid)
-                        elseif form == "overlay" then
-                            overlay_load_ass()
-                        end
-                    end)
-                    return
-                end
+local function get_max_sid()
+    local max_sid = 0
+    for _, track in ipairs(mp.get_property_native("track-list")) do
+        if track.type == "sub" and track.id > max_sid then
+            max_sid = track.id
+        end
+    end
+    return max_sid
+end
+
+local function load_danmaku(json)
+    danmaku_loaded = true
+    local data = utils.parse_json(json)
+    local success = create_ass(data.comments, data.options, ass_path)
+    if success then
+        if form == "sub" then
+            if sid then
+                mp.commandv("sub-reload", sid)
+            else
+                sid = get_max_sid() + 1
+                mp.commandv("sub-add", ass_path, "auto", "ssdm_danmaku")
+                mp.set_property_number("secondary-sid", sid)
             end
-            assprocess()
-        end)
-    end)
+        elseif form == "overlay" then
+            overlay_load_ass()
+        end
+    end
 end
 
 local function add_delay(value, no_osd)
     danmaku_delay = danmaku_delay + tonumber(value)
     if not no_osd then mp.osd_message("当前弹幕延迟: " .. (danmaku_delay > 0 and "+" or "") .. danmaku_delay .. "s") end
     if form == "osd" then
-        mp.commandv("script-message", "danmaku-delay", 0)
-        mp.commandv("script-message", "danmaku-delay", danmaku_delay)
+        mp.commandv("script-message-to", "uosc_danmaku", "ssdm_set_delay", danmaku_delay)
     elseif form == "sub" then
         mp.set_property_native("secondary-sub-delay", danmaku_delay)
     elseif form == "overlay" then
@@ -272,28 +244,27 @@ local function add_delay(value, no_osd)
     end
 end
 
-local function toggle_form(value, init)
+local function toggle_form(value)
     form = value or ({ osd = "sub", sub = "overlay", overlay = "osd" })[form]
     mp.set_property_native("user-data/ssdm-form", form)
-    if not init then mp.osd_message("弹幕形式: " .. form) end
+    mp.osd_message("弹幕形式: " .. form)
+    mp.commandv("script-message-to", "uosc_danmaku", "ssdm_show_danmaku", "false")
     if sid then
         mp.commandv("sub-remove", sid)
         sid = nil
     end
-    overlay_shutdown()
+    overlay_clear_danmaku()
+    add_delay("0", true)
     if form == "osd" then
-        set_uosc_danmaku(show_danmaku)
+        mp.commandv("script-message-to", "uosc_danmaku", "ssdm_show_danmaku", tostring(show_danmaku))
+        return
     elseif form == "sub" then
         mp.set_property_native("secondary-sub-visibility", show_danmaku)
     elseif form == "overlay" then
-        start_overlay()
+        overlay_visiblility()
     end
-    if init then return end
-    set_uosc_danmaku(true, function()
-        mp.commandv("script-message", "danmaku-delay", 0)
-        add_delay(0, true)
-        mp.add_timeout(0.2, assprocess)
-    end)
+    mp.commandv("script-message-to", "uosc_danmaku", "ssdm_set_delay", "0")
+    mp.commandv("script-message-to", "uosc_danmaku", "ssdm_load_danmaku", "r")
 end
 
 local function toggle_visibility()
@@ -302,12 +273,14 @@ local function toggle_visibility()
     mp.osd_message(show_danmaku and "开启弹幕" or "关闭弹幕")
     mp.commandv("script-message-to", "uosc", "set", "ssdm_show_danmaku", show_danmaku and "on" or "off")
     if form == "osd" then
-        set_uosc_danmaku(show_danmaku)
+        mp.commandv("script-message-to", "uosc_danmaku", "ssdm_show_danmaku", tostring(show_danmaku))
     elseif form == "sub" then
         mp.set_property_native("secondary-sub-visibility", show_danmaku)
     elseif form == "overlay" then
         overlay_visiblility()
     end
+    if form == "osd" or not show_danmaku or danmaku_loaded then return end
+    mp.commandv("script-message-to", "uosc_danmaku", "ssdm_load_danmaku")
 end
 
 local function unlock(o_aspect)
@@ -347,7 +320,7 @@ end
 
 local function init(_, loaded)
     if not loaded then return end
-    local script = io.open(uosc_danmaku_main_path, 'a+')
+    local script = io.open(mp.command_native({ "expand-path", "~~/" }) .. "/scripts/uosc_danmaku/main.lua", 'a+')
     if script then
         local support = false
         for line in script:lines() do
@@ -358,17 +331,82 @@ local function init(_, loaded)
         end
         if not support then
             mp.msg.info("检测到uosc_danmaku脚本未注入ssdm支持，开始注入...")
-            script:write(
-                '\n-- ssdm support --\nlocal _options = options\noptions = {}\nsetmetatable(options, {\n    __index = function(_, k)\n        return _options[k]\n    end,\n    __newindex = function(_, k, v)\n        _options[k] = v\n        mp.commandv("script-message-to", "ssdm", "danmaku_refresh")\n    end\n})\nmp.register_script_message("send_data", function()\n    local data = { enabled = ENABLED, comments = COMMENTS, options = _options }\n    mp.commandv("script-message-to", "ssdm", "receive_data", utils.format_json(data))\nend)\n'
-            )
-            mp.msg.info("ssdm支持注入成功，重启后即可使用次字幕弹幕相关功能")
+            script:write([[
+-- ssdm support --
+local _options = options
+options = {}
+setmetatable(options, {
+    __index = function(_, k)
+        return _options[k]
+    end,
+    __newindex = function(_, k, v)
+        _options[k] = v
+        mp.commandv("script-message-to", "ssdm", "danmaku_refresh")
+    end
+})
+mp.register_script_message("ssdm_show_danmaku", function(state)
+    ENABLED = state == "true"
+    if ENABLED then
+        show_danmaku_func()
+    else
+        hide_danmaku_func()
+    end
+end)
+mp.register_script_message("ssdm_set_delay", function(delay)
+    if not ENABLED then
+        local _render = render
+        render = function() end
+        mp.add_timeout(0.2, function() render = _render end)
+    end
+    local _show_message = show_message
+    show_message = function() end
+    set_danmaku_delay(0)
+    set_danmaku_delay(tonumber(delay))
+    show_message = _show_message
+end)
+mp.register_script_message("ssdm_load_danmaku", function(k)
+    local prev_enabled = ENABLED
+    local _render_danmaku = render_danmaku
+    local _show_message = show_message
+    render_danmaku = function() end
+    show_message = function() end
+    ENABLED = true
+    if COMMENTS == nil or #COMMENTS == 0 then
+        init(mp.get_property("path"))
+    end
+    local function finish()
+        render_danmaku = _render_danmaku
+        show_message = _show_message
+        ENABLED = prev_enabled
+        if k ~= "r" and COMMENTS and #COMMENTS > 0 then
+            show_message("弹幕加载成功，共计" .. #COMMENTS .. "条弹幕", 3)
+        end
+        local data = utils.format_json({ comments = COMMENTS, options = _options })
+        mp.commandv("script-message-to", "ssdm", "load_complete", data)
+    end
+    local tries = 0
+    local function poll()
+        tries = tries + 1
+        if (COMMENTS and #COMMENTS > 0) or tries > 50 then
+            finish()
+        else
+            mp.add_timeout(0.2, poll)
+        end
+    end
+    poll()
+end)
+]])
+            mp.msg.info("ssdm支持注入成功，重启后即可使用ssdm相关功能")
         end
         script:close()
+    end
+    start_overlay()
+    if mp.get_property_native("user-data/ssdm-visibility") then
+        show_danmaku = true
     end
     local saved = mp.get_property_native("user-data/ssdm-form")
     if saved then
         form = saved
-        toggle_form(form, true)
     else
         mp.set_property_native("user-data/ssdm-form", form)
     end
@@ -378,9 +416,6 @@ local function init(_, loaded)
         overlay_hdr_peak()
     else
         mp.set_property_native("user-data/ssdm-peak", overlay_peak)
-    end
-    if mp.get_property_native("user-data/ssdm-visibility") then
-        show_danmaku = true
     end
     mp.commandv("script-message-to", "uosc", "set", "ssdm_show_danmaku", show_danmaku and "on" or "off")
     if mp.get_property_native("user-data/ssdm-pad") then
@@ -396,7 +431,12 @@ local function init(_, loaded)
         overlay_hdr = vtp.gamma == "pq"
         overlay_hdr_mode()
     end)
-    mp.register_event("file-loaded", assprocess)
+    mp.register_event("file-loaded", function()
+        overlay_clear_danmaku()
+        danmaku_loaded = false
+        if form == "osd" or not show_danmaku then return end
+        mp.commandv("script-message-to", "uosc_danmaku", "ssdm_load_danmaku")
+    end)
     mp.register_event("shutdown", function()
         overlay_shutdown()
         os.remove(ass_path)
@@ -407,11 +447,13 @@ local function init(_, loaded)
     mp.register_script_message("set_ssdm_peak", function(peak)
         overlay_peak = peak
         mp.set_property_native("user-data/ssdm-peak", overlay_peak)
-        overlay_hdr_mode()
         overlay_hdr_peak()
     end)
-    mp.register_script_message("danmaku_refresh", assprocess)
-    mp.register_script_message("receive_data", receive_data)
+    mp.register_script_message("danmaku_refresh", function()
+        if form == "osd" or not danmaku_loaded then return end
+        mp.commandv("script-message-to", "uosc_danmaku", "ssdm_load_danmaku", "r")
+    end)
+    mp.register_script_message("load_complete", load_danmaku)
     mp.add_key_binding(nil, "toggle_form", toggle_form)
     mp.add_key_binding(nil, "toggle_visibility", toggle_visibility)
     mp.add_key_binding(nil, "toggle_pad", toggle_pad)
