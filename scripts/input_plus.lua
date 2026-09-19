@@ -21,7 +21,7 @@ local function split(inputstr, sep)
     return result
 end
 
-local alive = false
+local openfile_alive = false
 local chap_skip = false
 local chap_keywords = split(opt.skip_chapters, ",")
 local original_speed = nil
@@ -32,7 +32,7 @@ local config_dir = mp.command_native({ "expand-path", "~~/" })
 local function toggle_vs(state)
     local vf = mp.get_property_native("vf")
     for _, filter in ipairs(vf) do
-        if filter.label and filter.label:find("VS") and filter.enabled ~= state then
+        if filter.label and filter.label:find("^VS%d+$") and filter.enabled ~= state then
             mp.commandv("vf", "toggle", "@" .. filter.label)
         end
     end
@@ -76,18 +76,8 @@ local function chap_skip_toggle()
     end
 end
 
-local function show_file_dialog(file_type)
-    alive = true
-    local res = utils.subprocess({
-        args = { "openfile", file_type },
-        cancellable = false
-    })
-    mp.add_timeout(0.125, function() alive = false end)
-    return res
-end
-
 local function import(type)
-    if alive then return end
+    if openfile_alive then return end
     local command
     local is_replace = false
     if type == "Media" then
@@ -100,21 +90,28 @@ local function import(type)
     else
         return
     end
-    local res = show_file_dialog(type)
-    if res.status ~= 0 then return end
-    local first_file = true
-    for filename in string.gmatch(res.stdout, '[^\r\n]+') do
-        filename = filename:gsub('^%s*(.-)%s*$', '%1')
-        if filename ~= "" then
-            if is_replace then
-                local mode = first_file and "replace" or "append"
-                mp.commandv(command, filename, mode)
-                first_file = false
-            else
-                mp.commandv(command, filename)
+    openfile_alive = true
+    mp.command_native_async({
+        name = 'subprocess',
+        args = { "openfile", type },
+        playback_only = false,
+        capture_stdout = true
+    }, function(_, result)
+        openfile_alive = false
+        local first_file = true
+        for filename in string.gmatch(result.stdout, '[^\r\n]+') do
+            filename = filename:gsub('^%s*(.-)%s*$', '%1')
+            if filename ~= "" then
+                if is_replace then
+                    local mode = first_file and "replace" or "append"
+                    mp.commandv(command, filename, mode)
+                    first_file = false
+                else
+                    mp.commandv(command, filename)
+                end
             end
         end
-    end
+    end)
 end
 
 local function r_video()
@@ -207,15 +204,12 @@ local function show_ytdl_settings_menu()
 end
 
 local function update()
-    mp.command_native({
-        name = 'subprocess',
-        args = { "cmd", "/c", "start", '""', "cmd", "/c", config_dir .. "/../updater.bat" },
-        detach = true
-    })
+    local cmd = 'cmd /c start /b "updater" cmd /c "' .. config_dir .. '/../updater.bat"'
+    os.execute(cmd)
     mp.command_native_async({
-        name = 'subprocess',
+        name = "subprocess",
         args = { "taskkill", "/f", "/im", "mpv.exe", "/t" },
-        detach = true
+        playback_only = false
     })
 end
 
@@ -268,8 +262,12 @@ local function init(_, loaded)
             elseif activity_item.title == "Cookies路径" then
                 menu_data.title = "输入Cookies物理路径"
             elseif activity_item.title == "手动更新Cookies" then
-                mp.command_native_async({ name = "subprocess", playback_only = false, args = { "notepad", ytdl_settings.cookies } })
                 mp.commandv("script-message-to", "uosc", "close-menu")
+                mp.command_native_async({
+                    name = "subprocess",
+                    args = { "notepad", ytdl_settings.cookies },
+                    playback_only = false
+                })
             end
             for _, item in ipairs(menu_data.items) do item.active = false end
             activity_item.active = true

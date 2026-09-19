@@ -16,16 +16,12 @@ end
 local function extract_archive(src, dst, cb)
     mp.command_native_async({
         name = "subprocess",
+        args = { "7z", "x", src, "-o" .. dst, "-y" },
+        playback_only = false,
         capture_stdout = true,
-        capture_stderr = true,
-        args = { "7z", "x", src, "-o" .. dst, "-y" }
-    }, function(_, val, err)
-        if err or not val then
-            mp.msg.error("解压失败: " .. src)
-            cb(false)
-            return
-        end
-        mp.msg.info("成功解压: " .. src .. " → " .. dst)
+        capture_stderr = true
+    }, function()
+        mp.msg.info("字体包解压至: " .. src .. " → " .. dst)
         cb(true)
     end)
 end
@@ -126,9 +122,9 @@ local function update_fonts_dir()
             local dst = utils.join_path(dir, name:gsub("%.[^.]+$", ""))
             mp.command_native_async({
                 name = "subprocess",
-                args = { "cmd", "/c", "mkdir", dst }
-            }, function(_, _, err)
-                if err then return end
+                args = { "cmd", "/c", "mkdir", dst },
+                playback_only = false
+            }, function()
                 extract_archive(arc, dst, function(ok)
                     if ok then
                         already_extracted = true

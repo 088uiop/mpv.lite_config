@@ -423,11 +423,8 @@ end
 
 local function clear()
     mp.set_property_native("user-data/vs", vs)
-    local vf = mp.get_property_native("vf")
-    for _, filter in ipairs(vf) do
-        if filter.label and filter.label:find("VS") then
-            mp.commandv("vf", "remove", "@" .. filter.label)
-        end
+    for i = 1, #vs.state do
+        mp.commandv("vf", "remove", "@VS" .. i)
     end
 end
 
@@ -503,8 +500,8 @@ local function update(no_osd, fin)
 end
 
 local function clear_mode()
-    vs.state = {}
     clear()
+    vs.state = {}
     update()
 end
 
@@ -514,8 +511,8 @@ local function add_mode(mode)
 end
 
 local function set_mode(mode, key, value)
-    vs.modes[mode].settings[key] = value
     clear()
+    vs.modes[mode].settings[key] = value
     update(true)
 end
 
@@ -546,10 +543,12 @@ local function convert_vpy(file_path)
             local processed_args = {}
             for arg in args_raw:gmatch("([^,]+)") do
                 arg = arg:gsub("^%s*(.-)%s*$", "%1")
-                if arg == "video_in" or arg == "clip" then
+                if arg == "clip" then
                     table.insert(processed_args, "clip")
-                elseif arg == "container_fps" or arg == "fin" then
+                elseif arg == "fin" then
                     table.insert(processed_args, "clip.fps")
+                elseif arg == "nvof" then
+                    table.insert(processed_args, "False")
                 else
                     table.insert(processed_args, vars[arg] or arg)
                 end
@@ -563,15 +562,16 @@ end
 local function create_vpy(video_path)
     local targets = {}
     for _, mode in ipairs(vs.state) do table.insert(targets, vs.modes[mode].path) end
+    local temp_path = os.getenv("TEMP")
     local script_parts = {
         "import k7sfunc",
         "import vapoursynth",
-        string.format("clip = vapoursynth.core.lsmas.LWLibavSource(source=%q)", video_path),
+        string.format("clip = vapoursynth.core.lsmas.LWLibavSource(source=%q, cachedir=%q)", video_path, temp_path),
     }
     for _, path in ipairs(targets) do table.insert(script_parts, convert_vpy(path)) end
     table.insert(script_parts, "clip.set_output()")
     local script = table.concat(script_parts, "\n")
-    local temp_file = os.getenv("TEMP") .. "/vspipe_master.vpy"
+    local temp_file = temp_path .. "/vspipe_master.vpy"
     local file = io.open(temp_file, "w")
     if file then
         file:write(script)
@@ -600,7 +600,6 @@ local function encode_video()
     local stem = name:match("(.+)%..+$") or name
     local output_path = dir .. "/" .. stem .. "_processed.mkv"
     local mpv_path = mp.command_native({ "expand-path", "~~/../" })
-    local function esc(p) return string.gsub(p, "[%%^&]", { ["%%"] = "%%%%", ["^"] = "^^", ["&"] = "^&" }) end
     local vp = mp.get_property_native("video-params")
     local x265_params = string.format(
         '-x265-params "colorprim=%s:colormatrix=%s:transfer=%s:range=%s"',
@@ -616,12 +615,12 @@ local function encode_video()
             vp["max-fall"]
         ))
     end
+    local function esc(p) return string.gsub(p, "[%%^&]", { ["%%"] = "%%%%", ["^"] = "^^", ["&"] = "^&" }) end
     local cmd = string.format(
-        'cmd /c "cd /d %q & vspipe -c y4m %q - -p | ffmpeg -y -hide_banner -loglevel error -thread_queue_size 2048 -i - -i %q -map 0:v -map 1:a? -map 1:s? -map 1:t? -c:v libx265 -crf 18 -pix_fmt p010 %s -c:a copy -c:s copy -c:t copy %q & pause"',
+        'cmd /c start /b "process video" cmd /c "cd /d %q & vspipe -c y4m %q - -p | ffmpeg -y -hide_banner -loglevel error -thread_queue_size 2048 -i - -i %q -map 0:v -map 1:a? -map 1:s? -map 1:t? -c:v libx265 -crf 18 -pix_fmt p010 %s -c:a copy -c:s copy -c:t copy %q & pause"',
         esc(mpv_path), esc(vpy_path), esc(video_path), x265_params, esc(output_path)
     )
     os.execute(cmd)
-    os.remove(video_path .. ".lwi")
 end
 
 local functions = {
