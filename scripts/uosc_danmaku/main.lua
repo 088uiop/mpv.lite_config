@@ -933,66 +933,94 @@ mp.register_script_message("open_source_delay_menu", open_delay_menu)
 mp.register_script_message("open_search_danmaku_menu", open_input_menu)
 mp.register_script_message("open_add_source_menu", open_add_menu)
 mp.register_script_message("open_add_total_menu", open_add_total_menu)
--- ssdm support --
-local _options = options
+
+-- ssdm --
+local ssdm_variables = {
+    poll_danmaku = nil,
+    prev_enabled = false,
+    options = options,
+    show_message = show_message,
+    render_danmaku = render_danmaku
+}
+local ssdm_functions = {
+    showset = function(show)
+        ENABLED = show == "true"
+        if ENABLED then show_danmaku_func() else hide_danmaku_func() end
+    end,
+    delayset = function(delay)
+        if rebuild_convert_timer then
+            rebuild_convert_timer:kill()
+            rebuild_convert_timer = nil
+        end
+        for _, source in pairs(DANMAKU.sources) do
+            if source.data and not source.blocked then
+                source.delay_segments = { { start = 0, delay = tonumber(delay) } }
+            end
+        end
+        rebuild_convert_timer = mp.add_timeout(0.1, function()
+            convert_danmaku_to_ass_events(true)
+            if ENABLED then render() end
+        end)
+    end,
+    load = function()
+        if ssdm_variables.poll_danmaku then
+            ssdm_variables.poll_danmaku:kill()
+            ssdm_variables.poll_danmaku = nil
+            ENABLED = ssdm_variables.prev_enabled
+        end
+        ssdm_variables.prev_enabled = ENABLED
+        ENABLED = true
+        show_message = function() end
+        render_danmaku = function() end
+        local function restore()
+            ENABLED = ssdm_variables.prev_enabled
+            show_message = ssdm_variables.show_message
+            render_danmaku = ssdm_variables.render_danmaku
+        end
+        if COMMENTS == nil or #COMMENTS == 0 then init(mp.get_property("path")) end
+        ssdm_variables.show_message("弹幕加载中...", 10)
+        local tries = 0
+        local function poll()
+            if (COMMENTS and #COMMENTS > 0) then
+                if ssdm_variables.prev_enabled then show_danmaku_func() end
+                ssdm_variables.show_message("弹幕加载成功，共计" .. #COMMENTS .. "条弹幕", 3)
+                local data = utils.format_json({ comments = COMMENTS, options = ssdm_variables.options })
+                mp.commandv("script-message-to", "ssdm", "load_danmaku", data)
+                restore()
+            elseif tries < 50 then
+                ssdm_variables.poll_danmaku = mp.add_timeout(0.2, poll)
+            else
+                ssdm_variables.show_message("弹幕加载超时", 3)
+                restore()
+            end
+            tries = tries + 1
+        end
+        poll()
+    end,
+    refresh = function()
+        if rebuild_convert_timer then
+            rebuild_convert_timer:kill()
+            rebuild_convert_timer = nil
+        end
+        for _, source in pairs(DANMAKU.sources) do
+            if source.data and not source.blocked then
+                source.delay_segments = { { start = 0, delay = 0 } }
+            end
+        end
+        convert_danmaku_to_ass_events(true)
+        local data = utils.format_json({ comments = COMMENTS, options = ssdm_variables.options })
+        mp.commandv("script-message-to", "ssdm", "load_danmaku", data)
+    end
+}
 options = {}
 setmetatable(options, {
     __index = function(_, k)
-        return _options[k]
+        return ssdm_variables.options[k]
     end,
     __newindex = function(_, k, v)
-        _options[k] = v
-        mp.commandv("script-message-to", "ssdm", "danmaku_refresh")
+        ssdm_variables.options[k] = v
+        local data = utils.format_json({ comments = COMMENTS, options = ssdm_variables.options })
+        mp.commandv("script-message-to", "ssdm", "load_danmaku", data)
     end
 })
-mp.register_script_message("ssdm_show_danmaku", function(state)
-    ENABLED = state == "true"
-    if ENABLED then
-        show_danmaku_func()
-    else
-        hide_danmaku_func()
-    end
-end)
-mp.register_script_message("ssdm_set_delay", function(delay)
-    if not ENABLED then
-        local _render = render
-        render = function() end
-        mp.add_timeout(0.2, function() render = _render end)
-    end
-    local _show_message = show_message
-    show_message = function() end
-    set_danmaku_delay(0)
-    set_danmaku_delay(tonumber(delay))
-    show_message = _show_message
-end)
-mp.register_script_message("ssdm_load_danmaku", function(k)
-    local prev_enabled = ENABLED
-    local _render_danmaku = render_danmaku
-    local _show_message = show_message
-    render_danmaku = function() end
-    show_message = function() end
-    ENABLED = true
-    if COMMENTS == nil or #COMMENTS == 0 then
-        init(mp.get_property("path"))
-    end
-    local function finish()
-        render_danmaku = _render_danmaku
-        show_message = _show_message
-        ENABLED = prev_enabled
-        if k ~= "r" and COMMENTS and #COMMENTS > 0 then
-            show_message("弹幕加载成功，共计" .. #COMMENTS .. "条弹幕", 3)
-        end
-        local data = utils.format_json({ comments = COMMENTS, options = _options })
-        mp.commandv("script-message-to", "ssdm", "load_complete", data)
-    end
-    local tries = 0
-    local function poll()
-        tries = tries + 1
-        if (COMMENTS and #COMMENTS > 0) or tries > 50 then
-            finish()
-        else
-            mp.add_timeout(0.2, poll)
-        end
-    end
-    poll()
-end)
+mp.register_script_message("ssdm_command", function(fun, arg) ssdm_functions[fun](arg) end)
