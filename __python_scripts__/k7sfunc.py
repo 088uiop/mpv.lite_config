@@ -118,14 +118,10 @@ def get_backend(
     backend_configs = {
         "ort_dml": lambda: vsmlrt.BackendV2.ORT_DML(
             num_streams=2,
-            fp16=True,
-            output_format=1,
             device_id=gpu,
         ),
         "trt": lambda: vsmlrt.BackendV2.TRT(
             num_streams=2,
-            fp16=True,
-            output_format=1,
             static_shape=static,
             min_shapes=[0, 0] if static else [384, 384],
             opt_shapes=None if static else [1920, 1152],
@@ -135,8 +131,6 @@ def get_backend(
         ),
         "trt_rtx": lambda: vsmlrt.BackendV2.TRT_RTX(
             num_streams=2,
-            fp16=True,
-            output_format=1,
             static_shape=static,
             min_shapes=[0, 0] if static else [384, 384],
             opt_shapes=None if static else [1920, 1152],
@@ -159,13 +153,16 @@ def RIFE(
     sc_mode: bool = True,
     gpu: int = 0,
     static: bool = True,
+    turbo: int = 1,
 ) -> vs.VideoNode:
     import fractions
 
     fmt_in = input.format.id
     colorlv = getattr(input.get_frame(0).props, "_ColorRange", 0)
     clip = vs.core.misc.SCDetect(clip=input, threshold=0.15) if sc_mode else input
-    clip = vs.core.resize.Bilinear(clip, format=vs.RGBH, matrix_in_s="709")
+    clip = vs.core.resize.Bilinear(
+        clip, format=vs.RGBH if turbo else vs.RGBS, matrix_in_s="709"
+    )
     if abs:
         fpsin = fractions.Fraction(fps_in)
         fps_num *= fpsin.denominator
@@ -176,9 +173,10 @@ def RIFE(
     fin = vsmlrt.RIFE(
         clip=clip,
         multi=fractions.Fraction(fps_num, fps_den),
-        model=model,
         video_player=True,
-        _implementation=2,
+        model=model,
+        fp16=True if turbo == 1 else False,
+        int8=True if turbo == 2 else False,
         backend=get_backend(
             w_in=input.width,
             h_in=input.height,
@@ -204,13 +202,16 @@ def DRBA(
     sc_mode: bool = True,
     gpu: int = 0,
     static: bool = True,
+    turbo: int = 1,
 ) -> vs.VideoNode:
     import fractions
 
     fmt_in = input.format.id
     colorlv = getattr(input.get_frame(0).props, "_ColorRange", 0)
     clip = vs.core.misc.SCDetect(clip=input, threshold=0.15) if sc_mode else input
-    clip = vs.core.resize.Bilinear(clip, format=vs.RGBH, matrix_in_s="709")
+    clip = vs.core.resize.Bilinear(
+        clip, format=vs.RGBH if turbo else vs.RGBS, matrix_in_s="709"
+    )
     if abs:
         fpsin = fractions.Fraction(fps_in)
         fps_num *= fpsin.denominator
@@ -221,9 +222,10 @@ def DRBA(
     fin = vsmlrt.DRBA(
         clip=clip,
         multi=fractions.Fraction(fps_num, fps_den),
-        ap=True,
-        model=model,
         video_player=True,
+        model=model,
+        fp16=True if turbo == 1 else False,
+        int8=True if turbo == 2 else False,
         backend=get_backend(
             w_in=input.width,
             h_in=input.height,
@@ -244,13 +246,18 @@ def RealESRGAN(
     model: int = 5008,
     gpu: int = 0,
     static: bool = True,
+    turbo: int = 1,
 ) -> vs.VideoNode:
     fmt_in = input.format.id
     colorlv = getattr(input.get_frame(0).props, "_ColorRange", 0)
-    clip = vs.core.resize.Bilinear(input, format=vs.RGBH, matrix_in_s="709")
+    clip = vs.core.resize.Bilinear(
+        input, format=vs.RGBH if turbo else vs.RGBS, matrix_in_s="709"
+    )
     res = vsmlrt.RealESRGAN(
         clip=clip,
         model=model,
+        fp16=True if turbo == 1 else False,
+        int8=True if turbo == 2 else False,
         backend=get_backend(
             w_in=input.width,
             h_in=input.height,
@@ -270,6 +277,7 @@ def UAI(
     model_pth: str = "",
     gpu: int = 0,
     static: bool = True,
+    turbo: int = 1,
 ) -> vs.VideoNode:
     import os
     import onnx
@@ -285,6 +293,11 @@ def UAI(
         ).decode()
     else:
         plg_dir = os.path.dirname(vs.core.ort.Version()["path"]).decode()
+    if turbo == 1:
+        model_pth += "_fp16"
+    elif turbo == 2:
+        model_pth += "_int8"
+    model_pth += ".onnx"
     mdl_pth_rel = plg_dir + "/models/uai/" + model_pth
     mdl_pth = mdl_pth_rel if os.path.exists(mdl_pth_rel) else model_pth
     model = onnx.load(mdl_pth)
@@ -314,7 +327,9 @@ def UAI(
         )
         return output
     else:
-        clip = vs.core.resize.Bilinear(clip=input, format=vs.RGBH, matrix_in_s="709")
+        clip = vs.core.resize.Bilinear(
+            clip=input, format=vs.RGBH if turbo else vs.RGBS, matrix_in_s="709"
+        )
         infer = vsmlrt.inference(
             clips=clip,
             network_path=mdl_pth,

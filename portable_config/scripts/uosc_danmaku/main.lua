@@ -948,10 +948,7 @@ local ssdm_functions = {
         if ENABLED then show_danmaku_func() else hide_danmaku_func() end
     end,
     delayset = function(delay)
-        if rebuild_convert_timer then
-            rebuild_convert_timer:kill()
-            rebuild_convert_timer = nil
-        end
+        if rebuild_convert_timer then rebuild_convert_timer:kill() end
         for _, source in pairs(DANMAKU.sources) do
             if source.data and not source.blocked then
                 source.delay_segments = { { start = 0, delay = tonumber(delay) } }
@@ -998,10 +995,7 @@ local ssdm_functions = {
         poll()
     end,
     refresh = function()
-        if rebuild_convert_timer then
-            rebuild_convert_timer:kill()
-            rebuild_convert_timer = nil
-        end
+        if rebuild_convert_timer then rebuild_convert_timer:kill() end
         for _, source in pairs(DANMAKU.sources) do
             if source.data and not source.blocked then
                 source.delay_segments = { { start = 0, delay = 0 } }

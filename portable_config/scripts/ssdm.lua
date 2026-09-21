@@ -102,10 +102,8 @@ local function start_overlay()
     if overlay_started then return end
     mp.command_native_async({
         name = "subprocess",
-        args = { "danmaku_overlay.exe", "--mpv-pid", tostring(pid), "--pipe", pipe_full, "--fps", "60" },
-        playback_only = false,
-        capture_stdout = true,
-        capture_stderr = true
+        args = { "danmaku_overlay", "--mpv-pid", tostring(pid), "--pipe", pipe_full, "--fps", "60" },
+        detach = true
     })
     overlay_started = true
     local tries = 0
@@ -328,10 +326,7 @@ local ssdm_functions = {
         if ENABLED then show_danmaku_func() else hide_danmaku_func() end
     end,
     delayset = function(delay)
-        if rebuild_convert_timer then
-            rebuild_convert_timer:kill()
-            rebuild_convert_timer = nil
-        end
+        if rebuild_convert_timer then rebuild_convert_timer:kill() end
         for _, source in pairs(DANMAKU.sources) do
             if source.data and not source.blocked then
                 source.delay_segments = { { start = 0, delay = tonumber(delay) } }
@@ -378,10 +373,7 @@ local ssdm_functions = {
         poll()
     end,
     refresh = function()
-        if rebuild_convert_timer then
-            rebuild_convert_timer:kill()
-            rebuild_convert_timer = nil
-        end
+        if rebuild_convert_timer then rebuild_convert_timer:kill() end
         for _, source in pairs(DANMAKU.sources) do
             if source.data and not source.blocked then
                 source.delay_segments = { { start = 0, delay = 0 } }
@@ -403,7 +395,8 @@ setmetatable(options, {
         mp.commandv("script-message-to", "ssdm", "load_danmaku", data)
     end
 })
-mp.register_script_message("ssdm_command", function(fun, arg) ssdm_functions[fun](arg) end)]])
+mp.register_script_message("ssdm_command", function(fun, arg) ssdm_functions[fun](arg) end)
+]])
             mp.msg.info("ssdm支持注入成功，重启后即可使用ssdm相关功能")
         end
         script:close()

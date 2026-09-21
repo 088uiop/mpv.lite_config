@@ -204,12 +204,15 @@ local function show_ytdl_settings_menu()
 end
 
 local function update()
-    local cmd = 'cmd /c start /b "updater" cmd /c "' .. config_dir .. '/../updater.bat"'
-    os.execute(cmd)
+    mp.command_native({
+        name = 'subprocess',
+        args = { "cmd", "/c", "start", '""', "cmd", "/c", config_dir .. "/../updater.bat" },
+        detach = true
+    })
     mp.command_native_async({
-        name = "subprocess",
+        name = 'subprocess',
         args = { "taskkill", "/f", "/im", "mpv.exe", "/t" },
-        playback_only = false
+        detach = true
     })
 end
 
