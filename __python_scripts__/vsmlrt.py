@@ -1,12 +1,18 @@
 __version__ = "3.23.2"
 
 __all__ = [
-    "Backend", "BackendV2",
-    "RealESRGAN", "RealESRGANModel",
-    "RIFE", "RIFEModel", "RIFEMerge",
-    "DRBA", "DRBAModel", "DRBAMerge",
+    "Backend",
+    "BackendV2",
+    "RealESRGAN",
+    "RealESRGANModel",
+    "RIFE",
+    "RIFEModel",
+    "RIFEMerge",
+    "DRBA",
+    "DRBAModel",
+    "DRBAMerge",
     "inference",
-    "flexible_inference"
+    "flexible_inference",
 ]
 
 import copy
@@ -50,7 +56,7 @@ models_path: str = os.path.join(plugins_path, "models")
 class Backend:
     @dataclass(frozen=False)
     class TRT:
-        """ backend for nvidia gpus (TensorRT 11+) """
+        """backend for nvidia gpus (TensorRT 11+)"""
 
         max_shapes: typing.Optional[typing.Tuple[int, int]] = None
         opt_shapes: typing.Optional[typing.Tuple[int, int]] = None
@@ -66,7 +72,9 @@ class Backend:
         min_shapes: typing.Tuple[int, int] = (0, 0)
         builder_optimization_level: int = 3
         max_aux_streams: typing.Optional[int] = None
-        short_path: typing.Optional[bool] = None  # True on Windows by default, False otherwise
+        short_path: typing.Optional[bool] = (
+            None  # True on Windows by default, False otherwise
+        )
         custom_env: typing.Dict[str, str] = field(default_factory=lambda: {})
         custom_args: typing.List[str] = field(default_factory=lambda: [])
         engine_folder: typing.Optional[str] = None
@@ -79,7 +87,7 @@ class Backend:
 
     @dataclass(frozen=False)
     class TRT_RTX:
-        """ backend for nvidia rtx gpus (TensorRT-RTX) """
+        """backend for nvidia rtx gpus (TensorRT-RTX)"""
 
         device_id: int = 0
         workspace: typing.Optional[int] = None
@@ -95,7 +103,9 @@ class Backend:
         use_edge_mask_convolutions: bool = True
         builder_optimization_level: int = 3
         max_aux_streams: typing.Optional[int] = None
-        short_path: typing.Optional[bool] = None  # True on Windows by default, False otherwise
+        short_path: typing.Optional[bool] = (
+            None  # True on Windows by default, False otherwise
+        )
         custom_env: typing.Dict[str, str] = field(default_factory=lambda: {})
         custom_args: typing.List[str] = field(default_factory=lambda: [])
         engine_folder: typing.Optional[str] = None
@@ -108,7 +118,7 @@ class Backend:
 
     @dataclass(frozen=False)
     class ORT_DML:
-        """ backend for directml (d3d12) devices """
+        """backend for directml (d3d12) devices"""
 
         device_id: int = 0
         num_streams: int = 1
@@ -127,33 +137,6 @@ backendT = typing.Union[
 
 
 fallback_backend: typing.Optional[backendT] = None
-
-
-def _resolve_model(
-    network_path: typing.Union[bytes, str],
-    fp16: bool,
-    int8: bool,
-) -> typing.Tuple[typing.Union[bytes, str], bool]:
-    """Select the offline-converted model file for the requested precision.
-
-    Returns (path, fp16_io). fp16_io is True when the chosen model has fp16 IO
-    (so the ORT backend sets output_format = 1).
-
-    If both fp16 and int8 are True, fp16 wins.
-    """
-    if not isinstance(network_path, str):
-        return network_path, False
-    if fp16:
-        return network_path[:-5] + "_fp16.onnx", True
-    elif int8:
-        return network_path[:-5] + "_int8.onnx", True
-    return network_path, False
-
-
-def _set_output_format(backend: backendT, fp16_io: bool) -> backendT:
-    if isinstance(backend, Backend.ORT_DML):
-        backend.output_format = 1 if fp16_io else 0
-    return backend
 
 
 @enum.unique
@@ -178,7 +161,6 @@ def RealESRGAN(
     backend: backendT = Backend.ORT_DML(),
     scale: typing.Optional[float] = None,
     fp16: bool = False,
-    int8: bool = False,
 ) -> vs.VideoNode:
 
     func_name = "vsmlrt.RealESRGAN"
@@ -186,8 +168,13 @@ def RealESRGAN(
     if not isinstance(clip, vs.VideoNode):
         raise TypeError(f'{func_name}: "clip" must be a clip!')
 
-    if clip.format.sample_type != vs.FLOAT or clip.format.bits_per_sample not in [16, 32]:
-        raise ValueError(f"{func_name}: only constant format 16/32 bit float input supported")
+    if clip.format.sample_type != vs.FLOAT or clip.format.bits_per_sample not in [
+        16,
+        32,
+    ]:
+        raise ValueError(
+            f"{func_name}: only constant format 16/32 bit float input supported"
+        )
 
     if clip.format.color_family != vs.RGB:
         raise ValueError(f'{func_name}: "clip" must be of RGB color family')
@@ -205,43 +192,47 @@ def RealESRGAN(
     multiple = 1
 
     (tile_w, tile_h), (overlap_w, overlap_h) = calc_tilesize(
-        tiles=tiles, tilesize=tilesize,
-        width=clip.width, height=clip.height,
+        tiles=tiles,
+        tilesize=tilesize,
+        width=clip.width,
+        height=clip.height,
         multiple=multiple,
-        overlap_w=overlap_w, overlap_h=overlap_h
+        overlap_w=overlap_w,
+        overlap_h=overlap_h,
     )
 
     if tile_w % multiple != 0 or tile_h % multiple != 0:
         raise ValueError(
-            f'{func_name}: tile size must be divisible by {multiple} ({tile_w}, {tile_h})'
+            f"{func_name}: tile size must be divisible by {multiple} ({tile_w}, {tile_h})"
         )
 
-    backend = init_backend(
-        backend=backend,
-        trt_opt_shapes=(tile_w, tile_h)
-    )
+    backend = init_backend(backend=backend, trt_opt_shapes=(tile_w, tile_h))
 
     if model == 2:
         network_path = os.path.join(
-            models_path,
-            "realesrgan",
-            "realesr-animevideov3.onnx"
+            models_path, "realesrgan", "realesr-animevideov3.onnx"
         )
     else:
         network_path = os.path.join(
             models_path,
             "realesrgan",
-            f"{RealESRGANModel(model).name}.onnx".replace('_', '-')
+            f"{RealESRGANModel(model).name}.onnx".replace("_", "-"),
         )
 
-    network_path, fp16_io = _resolve_model(network_path, fp16, int8)
-    backend = _set_output_format(backend, fp16_io)
+    if fp16:
+        network_path, fp16_io = network_path[:-5] + "_fp16.onnx", True
+    else:
+        fp16_io = False
+    if isinstance(backend, Backend.ORT_DML):
+        backend.output_format = 1 if fp16_io else 0
 
     clip_org = clip
     clip = inference_with_fallback(
-        clips=[clip], network_path=network_path,
-        overlap=(overlap_w, overlap_h), tilesize=(tile_w, tile_h),
-        backend=backend
+        clips=[clip],
+        network_path=network_path,
+        overlap=(overlap_w, overlap_h),
+        tilesize=(tile_w, tile_h),
+        backend=backend,
     )
 
     if scale is not None:
@@ -254,9 +245,21 @@ def RealESRGAN(
             rescale = scale / scale_h
 
             if rescale > 1:
-                clip = core.resize.Lanczos(clip, int(clip_org.width * scale), int(clip_org.height * scale), filter_param_a=4)
+                clip = core.resize.Lanczos(
+                    clip,
+                    int(clip_org.width * scale),
+                    int(clip_org.height * scale),
+                    filter_param_a=4,
+                )
             else:
-                clip = fmtc_resample(clip, scale=rescale, kernel="lanczos", taps=4, fh=1/rescale, fv=1/rescale)
+                clip = fmtc_resample(
+                    clip,
+                    scale=rescale,
+                    kernel="lanczos",
+                    taps=4,
+                    fh=1 / rescale,
+                    fv=1 / rescale,
+                )
 
     return clip
 
@@ -281,9 +284,8 @@ def RIFEMerge(
     backend: backendT = Backend.ORT_DML(),
     ensemble: bool = False,
     fp16: bool = False,
-    int8: bool = False,
 ) -> vs.VideoNode:
-    """ temporal MaskedMerge-like interface for the RIFE model (v2 format only)
+    """temporal MaskedMerge-like interface for the RIFE model (v2 format only)
 
     Its semantics is similar to core.std.MaskedMerge(clipa, clipb, mask, first_plane=True),
     except that it merges the two clips in the time domain and you specify the "mask" based
@@ -294,66 +296,79 @@ def RIFEMerge(
 
     for clip in (clipa, clipb, mask):
         if not isinstance(clip, vs.VideoNode):
-            raise TypeError(f'{func_name}: clip must be a clip!')
+            raise TypeError(f"{func_name}: clip must be a clip!")
 
-        if clip.format.sample_type != vs.FLOAT or clip.format.bits_per_sample not in [16, 32]:
-            raise ValueError(f"{func_name}: only constant format 16/32 bit float input supported")
+        if clip.format.sample_type != vs.FLOAT or clip.format.bits_per_sample not in [
+            16,
+            32,
+        ]:
+            raise ValueError(
+                f"{func_name}: only constant format 16/32 bit float input supported"
+            )
 
     for clip in (clipa, clipb):
         if clip.format.color_family != vs.RGB:
-            raise ValueError(f'{func_name}: "clipa" / "clipb" must be of RGB color family')
+            raise ValueError(
+                f'{func_name}: "clipa" / "clipb" must be of RGB color family'
+            )
 
         if clip.width != mask.width or clip.height != mask.height:
-            raise ValueError(f'{func_name}: video dimensions mismatch')
+            raise ValueError(f"{func_name}: video dimensions mismatch")
 
         if clip.num_frames != mask.num_frames:
-            raise ValueError(f'{func_name}: number of frames mismatch')
+            raise ValueError(f"{func_name}: number of frames mismatch")
 
     if mask.format.color_family != vs.GRAY:
         raise ValueError(f'{func_name}: "mask" must be of GRAY color family')
 
     if tiles is not None or tilesize is not None or overlap is not None:
-        raise ValueError(f'{func_name}: tiling is not supported')
+        raise ValueError(f"{func_name}: tiling is not supported")
 
     if scale != 1.0:
-        raise ValueError(f'{func_name}: "scale" must be 1.0 (v2 format only supports scale 1.0)')
+        raise ValueError(
+            f'{func_name}: "scale" must be 1.0 (v2 format only supports scale 1.0)'
+        )
 
     overlap_w = overlap_h = 0
     multiple = 1  # v2 implements internal padding
 
-    version = RIFEModel(model).name.replace("_", ".", 1) + ("_ensemble" if ensemble else "")
-
-    network_path = os.path.join(
-        models_path,
-        "rife",
-        f"rife_{version}.onnx"
+    version = RIFEModel(model).name.replace("_", ".", 1) + (
+        "_ensemble" if ensemble else ""
     )
+
+    network_path = os.path.join(models_path, "rife", f"rife_{version}.onnx")
     clips = [clipa, clipb, mask]
 
     (tile_w, tile_h), (overlap_w, overlap_h) = calc_tilesize(
-        tiles=tiles, tilesize=tilesize,
-        width=clipa.width, height=clipa.height,
+        tiles=tiles,
+        tilesize=tilesize,
+        width=clipa.width,
+        height=clipa.height,
         multiple=multiple,
-        overlap_w=overlap_w, overlap_h=overlap_h
+        overlap_w=overlap_w,
+        overlap_h=overlap_h,
     )
 
     if tile_w % multiple != 0 or tile_h % multiple != 0:
         raise ValueError(
-            f'{func_name}: tile size must be divisible by {multiple} ({tile_w}, {tile_h})'
+            f"{func_name}: tile size must be divisible by {multiple} ({tile_w}, {tile_h})"
         )
 
-    backend = init_backend(
-        backend=backend,
-        trt_opt_shapes=(tile_w, tile_h)
-    )
+    backend = init_backend(backend=backend, trt_opt_shapes=(tile_w, tile_h))
 
-    network_path, fp16_io = _resolve_model(network_path, fp16, int8)
-    backend = _set_output_format(backend, fp16_io)
+    if fp16:
+        network_path, fp16_io = network_path[:-5] + "_fp16.onnx", True
+    else:
+        fp16_io = False
+    if isinstance(backend, Backend.ORT_DML):
+        backend.output_format = 1 if fp16_io else 0
 
     return inference_with_fallback(
-        clips=clips, network_path=network_path,
-        overlap=(overlap_w, overlap_h), tilesize=(tile_w, tile_h),
-        backend=backend
+        clips=clips,
+        network_path=network_path,
+        overlap=(overlap_w, overlap_h),
+        tilesize=(tile_w, tile_h),
+        backend=backend,
     )
 
 
@@ -369,9 +384,8 @@ def RIFE(
     ensemble: bool = False,
     video_player: bool = False,
     fp16: bool = False,
-    int8: bool = False,
 ) -> vs.VideoNode:
-    """ RIFE: Real-Time Intermediate Flow Estimation for Video Frame Interpolation
+    """RIFE: Real-Time Intermediate Flow Estimation for Video Frame Interpolation
 
     multi, scale is based on vs-rife.
 
@@ -394,17 +408,24 @@ def RIFE(
     if not isinstance(clip, vs.VideoNode):
         raise TypeError(f'{func_name}: "clip" must be a clip!')
 
-    if clip.format.sample_type != vs.FLOAT or clip.format.bits_per_sample not in [16, 32]:
-        raise ValueError(f"{func_name}: only constant format 16/32 bit float input supported")
+    if clip.format.sample_type != vs.FLOAT or clip.format.bits_per_sample not in [
+        16,
+        32,
+    ]:
+        raise ValueError(
+            f"{func_name}: only constant format 16/32 bit float input supported"
+        )
 
     if clip.format.color_family != vs.RGB:
         raise ValueError(f'{func_name}: "clip" must be of RGB color family')
 
     if not isinstance(multi, (int, Fraction)):
-        raise TypeError(f'{func_name}: "multi" must be an integer or a fractions.Fraction!')
+        raise TypeError(
+            f'{func_name}: "multi" must be an integer or a fractions.Fraction!'
+        )
 
     if tiles is not None or tilesize is not None or overlap is not None:
-        raise ValueError(f'{func_name}: tiling is not supported')
+        raise ValueError(f"{func_name}: tiling is not supported")
 
     gray_format = vs.GRAYS if clip.format.bits_per_sample == 32 else vs.GRAYH
 
@@ -412,47 +433,67 @@ def RIFE(
         multi = int(multi)
 
         if multi < 2:
-            raise ValueError(f'{func_name}: RIFE: multi must be at least 2')
+            raise ValueError(f"{func_name}: RIFE: multi must be at least 2")
 
         initial = core.std.Interleave([clip] * (multi - 1))
 
-        terminal = clip.std.DuplicateFrames(frames=clip.num_frames - 1).std.Trim(first=1)
+        terminal = clip.std.DuplicateFrames(frames=clip.num_frames - 1).std.Trim(
+            first=1
+        )
         terminal = core.std.Interleave([terminal] * (multi - 1))
 
-        timepoint = core.std.Interleave([
-            clip.std.BlankClip(format=gray_format, color=i/multi, length=1)
-            for i in range(1, multi)
-        ]).std.Loop(clip.num_frames)
+        timepoint = core.std.Interleave(
+            [
+                clip.std.BlankClip(format=gray_format, color=i / multi, length=1)
+                for i in range(1, multi)
+            ]
+        ).std.Loop(clip.num_frames)
 
         output0 = RIFEMerge(
-            clipa=initial, clipb=terminal, mask=timepoint,
-            scale=scale, tiles=tiles, tilesize=tilesize, overlap=overlap,
-            model=model, backend=backend, ensemble=ensemble,
-            fp16=fp16, int8=int8
+            clipa=initial,
+            clipb=terminal,
+            mask=timepoint,
+            scale=scale,
+            tiles=tiles,
+            tilesize=tilesize,
+            overlap=overlap,
+            model=model,
+            backend=backend,
+            ensemble=ensemble,
+            fp16=fp16,
         )
 
         clip = bits_as(clip, output0)
         initial = core.std.Interleave([clip] * (multi - 1))
 
-        if hasattr(core, 'akarin') and hasattr(core.akarin, 'Select'):
-            output = core.akarin.Select([output0, initial], initial, 'x._SceneChangeNext 1 0 ?')
+        if hasattr(core, "akarin") and hasattr(core.akarin, "Select"):
+            output = core.akarin.Select(
+                [output0, initial], initial, "x._SceneChangeNext 1 0 ?"
+            )
         else:
+
             def handler(n: int, f: vs.VideoFrame) -> vs.VideoNode:
-                if f.props.get('_SceneChangeNext'):
+                if f.props.get("_SceneChangeNext"):
                     return initial
                 return output0
+
             output = core.std.FrameEval(output0, handler, initial)
 
         if multi == 2:
             res = core.std.Interleave([clip, output])
         else:
-            res = core.std.Interleave([
-                clip,
-                *(output.std.SelectEvery(cycle=multi-1, offsets=i) for i in range(multi - 1))
-            ])
+            res = core.std.Interleave(
+                [
+                    clip,
+                    *(
+                        output.std.SelectEvery(cycle=multi - 1, offsets=i)
+                        for i in range(multi - 1)
+                    ),
+                ]
+            )
 
         if clip.fps_num != 0 and clip.fps_den != 0:
-            return res.std.AssumeFPS(fpsnum = clip.fps_num * multi, fpsden = clip.fps_den)
+            return res.std.AssumeFPS(fpsnum=clip.fps_num * multi, fpsden=clip.fps_den)
         else:
             return res
     else:
@@ -463,7 +504,7 @@ def RIFE(
 
         dst_fps = src_fps * multi
         src_frames = clip.num_frames
-        dst_frames = min(int(src_frames * multi), 2 ** 31 - 1)
+        dst_frames = min(int(src_frames * multi), 2**31 - 1)
 
         duration_rel = src_fps / dst_fps
         dst_duration = duration_rel.numerator
@@ -475,27 +516,38 @@ def RIFE(
 
             def left_func(n: int) -> vs.VideoNode:
                 return clip[dst_duration * n // src_duration]
+
             left_clip = core.std.FrameEval(temp, left_func)
 
             def right_func(n: int) -> vs.VideoNode:
                 # no out of range access because of function filter_sc
                 return clip[dst_duration * n // src_duration + 1]
+
             right_clip = core.std.FrameEval(temp, right_func)
 
             temp_gray = core.std.BlankClip(temp, format=gray_format, keep=True)
+
             def timepoint_func(n: int) -> vs.VideoNode:
                 current_time = dst_duration * n
                 left_index = current_time // src_duration
                 left_time = src_duration * left_index
                 tp = (current_time - left_time) / src_duration
                 return temp_gray.std.BlankClip(color=tp, keep=True)
+
             tp_clip = core.std.FrameEval(temp_gray, timepoint_func)
 
             output0 = RIFEMerge(
-                clipa=left_clip, clipb=right_clip, mask=tp_clip,
-                scale=scale, tiles=tiles, tilesize=tilesize, overlap=overlap,
-                model=model, backend=backend, ensemble=ensemble,
-                fp16=fp16, int8=int8
+                clipa=left_clip,
+                clipb=right_clip,
+                mask=tp_clip,
+                scale=scale,
+                tiles=tiles,
+                tilesize=tilesize,
+                overlap=overlap,
+                model=model,
+                backend=backend,
+                ensemble=ensemble,
+                fp16=fp16,
             )
 
             left0 = bits_as(left_clip, output0)
@@ -504,9 +556,9 @@ def RIFE(
                 current_time = dst_duration * n
                 left_index = current_time // src_duration
                 if (
-                    current_time % src_duration == 0 or
-                    left_index + 1 >= src_frames or
-                    f.props.get("_SceneChangeNext", False)
+                    current_time % src_duration == 0
+                    or left_index + 1 >= src_frames
+                    or f.props.get("_SceneChangeNext", False)
                 ):
                     return left0
                 else:
@@ -514,13 +566,16 @@ def RIFE(
 
             res = core.std.FrameEval(output0, filter_sc, left0)
         else:
-            if not hasattr(core, 'akarin') or \
-                not hasattr(core.akarin, 'PropExpr') or \
-                not hasattr(core.akarin, 'PickFrames'):
+            if (
+                not hasattr(core, "akarin")
+                or not hasattr(core.akarin, "PropExpr")
+                or not hasattr(core.akarin, "PickFrames")
+            ):
                 raise RuntimeError(
-                    'fractional multi requires plugin akarin '
-                    '(https://github.com/AkarinVS/vapoursynth-plugin/releases)'
-                    ', version v0.96g or later.')
+                    "fractional multi requires plugin akarin "
+                    "(https://github.com/AkarinVS/vapoursynth-plugin/releases)"
+                    ", version v0.96g or later."
+                )
 
             left_indices = []
             right_indices = []
@@ -546,23 +601,38 @@ def RIFE(
 
             left_clip = core.akarin.PickFrames(clip, left_indices)
             right_clip = core.akarin.PickFrames(clip, right_indices)
-            tp_clip = core.std.BlankClip(clip, format=gray_format, length=len(timepoints))
-            tp_clip = tp_clip.akarin.PropExpr(lambda: dict(_tp=timepoints)).akarin.Expr('x._tp')
+            tp_clip = core.std.BlankClip(
+                clip, format=gray_format, length=len(timepoints)
+            )
+            tp_clip = tp_clip.akarin.PropExpr(lambda: dict(_tp=timepoints)).akarin.Expr(
+                "x._tp"
+            )
 
             output0 = RIFEMerge(
-                clipa=left_clip, clipb=right_clip, mask=tp_clip,
-                scale=scale, tiles=tiles, tilesize=tilesize, overlap=overlap,
-                model=model, backend=backend, ensemble=ensemble,
-                fp16=fp16, int8=int8
+                clipa=left_clip,
+                clipb=right_clip,
+                mask=tp_clip,
+                scale=scale,
+                tiles=tiles,
+                tilesize=tilesize,
+                overlap=overlap,
+                model=model,
+                backend=backend,
+                ensemble=ensemble,
+                fp16=fp16,
             )
 
             clip0 = bits_as(clip, output0)
             left0 = bits_as(left_clip, output0)
-            output = core.akarin.Select([output0, left0], left0, 'x._SceneChangeNext 1 0 ?')
+            output = core.akarin.Select(
+                [output0, left0], left0, "x._SceneChangeNext 1 0 ?"
+            )
             res = core.akarin.PickFrames(clip0 + output, output_indices)
 
         if clip.fps_num != 0 and clip.fps_den != 0:
-            return res.std.AssumeFPS(fpsnum = dst_fps.numerator, fpsden = dst_fps.denominator)
+            return res.std.AssumeFPS(
+                fpsnum=dst_fps.numerator, fpsden=dst_fps.denominator
+            )
         else:
             return res
 
@@ -585,34 +655,38 @@ def DRBAMerge(
     model: DRBAModel = DRBAModel.v1,
     backend: backendT = Backend.ORT_DML(),
     fp16: bool = False,
-    int8: bool = False,
 ) -> vs.VideoNode:
-    """ DRBA (auto-padding variant only) """
+    """DRBA (auto-padding variant only)"""
 
     func_name = "vsmlrt.DRBAMerge"
 
     for clip in (clip0, clip1, clip2, clip3, mask):
         if not isinstance(clip, vs.VideoNode):
-            raise TypeError(f'{func_name}: all inputs must be clips!')
+            raise TypeError(f"{func_name}: all inputs must be clips!")
 
-        if clip.format.sample_type != vs.FLOAT or clip.format.bits_per_sample not in [16, 32]:
-            raise ValueError(f"{func_name}: only constant format 16/32 bit float input supported")
+        if clip.format.sample_type != vs.FLOAT or clip.format.bits_per_sample not in [
+            16,
+            32,
+        ]:
+            raise ValueError(
+                f"{func_name}: only constant format 16/32 bit float input supported"
+            )
 
     for clip in (clip0, clip1, clip2, clip3):
         if clip.format.color_family != vs.RGB:
-            raise ValueError(f'{func_name}: frame clips must be RGB color family')
+            raise ValueError(f"{func_name}: frame clips must be RGB color family")
 
         if clip.width != mask.width or clip.height != mask.height:
-            raise ValueError(f'{func_name}: video dimensions mismatch')
+            raise ValueError(f"{func_name}: video dimensions mismatch")
 
         if clip.num_frames != mask.num_frames:
-            raise ValueError(f'{func_name}: number of frames mismatch')
+            raise ValueError(f"{func_name}: number of frames mismatch")
 
     if mask.format.color_family != vs.GRAY:
         raise ValueError(f'{func_name}: "mask" must be of GRAY color family')
 
     if tiles is not None or tilesize is not None or overlap is not None:
-        raise ValueError(f'{func_name}: tiling is not supported')
+        raise ValueError(f"{func_name}: tiling is not supported")
 
     overlap_w = overlap_h = 0
 
@@ -624,15 +698,11 @@ def DRBAMerge(
     elif model == DRBAModel.v2_lite:
         version = "v2_lite"
     else:
-        raise ValueError(f'{func_name}: unsupported model version')
+        raise ValueError(f"{func_name}: unsupported model version")
 
     model_name = f"distilDRBA_{version}.onnx"
 
-    network_path = os.path.join(
-        models_path,
-        "drba",
-        model_name
-    )
+    network_path = os.path.join(models_path, "drba", model_name)
 
     gray_format = vs.GRAYS if clip0.format.bits_per_sample == 32 else vs.GRAYH
     scale_placeholder = clip0.std.BlankClip(format=gray_format, color=1.0, keep=True)
@@ -640,24 +710,30 @@ def DRBAMerge(
     clips = [clip0, clip1, clip2, clip3, mask, scale_placeholder]
 
     (tile_w, tile_h), (overlap_w, overlap_h) = calc_tilesize(
-        tiles=tiles, tilesize=tilesize,
-        width=clip0.width, height=clip0.height,
+        tiles=tiles,
+        tilesize=tilesize,
+        width=clip0.width,
+        height=clip0.height,
         multiple=multiple,
-        overlap_w=overlap_w, overlap_h=overlap_h
+        overlap_w=overlap_w,
+        overlap_h=overlap_h,
     )
 
-    backend = init_backend(
-        backend=backend,
-        trt_opt_shapes=(tile_w, tile_h)
-    )
+    backend = init_backend(backend=backend, trt_opt_shapes=(tile_w, tile_h))
 
-    network_path, fp16_io = _resolve_model(network_path, fp16, int8)
-    backend = _set_output_format(backend, fp16_io)
+    if fp16:
+        network_path, fp16_io = network_path[:-5] + "_fp16.onnx", True
+    else:
+        fp16_io = False
+    if isinstance(backend, Backend.ORT_DML):
+        backend.output_format = 1 if fp16_io else 0
 
     return inference_with_fallback(
-        clips=clips, network_path=network_path,
-        overlap=(overlap_w, overlap_h), tilesize=(tile_w, tile_h),
-        backend=backend
+        clips=clips,
+        network_path=network_path,
+        overlap=(overlap_w, overlap_h),
+        tilesize=(tile_w, tile_h),
+        backend=backend,
     )
 
 
@@ -671,9 +747,8 @@ def DRBA(
     backend: backendT = Backend.ORT_DML(),
     video_player: bool = False,
     fp16: bool = False,
-    int8: bool = False,
 ) -> vs.VideoNode:
-    """ DRBA:
+    """DRBA:
 
     Args:
         multi: Multiple of the frame counts (2 for 2x, etc.)
@@ -684,17 +759,24 @@ def DRBA(
     if not isinstance(clip, vs.VideoNode):
         raise TypeError(f'{func_name}: "clip" must be a clip!')
 
-    if clip.format.sample_type != vs.FLOAT or clip.format.bits_per_sample not in [16, 32]:
-        raise ValueError(f"{func_name}: only constant format 16/32 bit float input supported")
+    if clip.format.sample_type != vs.FLOAT or clip.format.bits_per_sample not in [
+        16,
+        32,
+    ]:
+        raise ValueError(
+            f"{func_name}: only constant format 16/32 bit float input supported"
+        )
 
     if clip.format.color_family != vs.RGB:
         raise ValueError(f'{func_name}: "clip" must be of RGB color family')
 
     if not isinstance(multi, (int, Fraction)):
-        raise TypeError(f'{func_name}: "multi" must be an integer or a fractions.Fraction!')
+        raise TypeError(
+            f'{func_name}: "multi" must be an integer or a fractions.Fraction!'
+        )
 
     if tiles is not None or tilesize is not None or overlap is not None:
-        raise ValueError(f'{func_name}: tiling is not supported')
+        raise ValueError(f"{func_name}: tiling is not supported")
 
     gray_format = vs.GRAYS if clip.format.bits_per_sample == 32 else vs.GRAYH
 
@@ -702,13 +784,13 @@ def DRBA(
         multi = int(multi)
 
         if multi < 2:
-            raise ValueError(f'{func_name}: multi must be at least 2')
+            raise ValueError(f"{func_name}: multi must be at least 2")
 
         gray_format = vs.GRAYS if clip.format.bits_per_sample == 32 else vs.GRAYH
         n_frames = clip.num_frames
 
         if n_frames < 4:
-            raise ValueError(f'{func_name}: clip must have at least 4 frames for DRBA')
+            raise ValueError(f"{func_name}: clip must have at least 4 frames for DRBA")
 
         img1 = clip
         img2 = clip.std.DuplicateFrames(frames=n_frames - 1).std.Trim(first=1)
@@ -721,28 +803,41 @@ def DRBA(
         img2 = core.std.Interleave([img2] * cnt)
         img3 = core.std.Interleave([img3] * cnt)
 
-        timepoint = core.std.Interleave([
-            clip.std.BlankClip(format=gray_format, color=i/multi, length=1)
-            for i in range(1, multi)
-        ]).std.Loop(clip.num_frames)
+        timepoint = core.std.Interleave(
+            [
+                clip.std.BlankClip(format=gray_format, color=i / multi, length=1)
+                for i in range(1, multi)
+            ]
+        ).std.Loop(clip.num_frames)
 
         output0 = DRBAMerge(
-            clip0=img0, clip1=img1, clip2=img2, clip3=img3, mask=timepoint,
-            tiles=tiles, tilesize=tilesize, overlap=overlap,
-            model=model, backend=backend,
-            fp16=fp16, int8=int8
+            clip0=img0,
+            clip1=img1,
+            clip2=img2,
+            clip3=img3,
+            mask=timepoint,
+            tiles=tiles,
+            tilesize=tilesize,
+            overlap=overlap,
+            model=model,
+            backend=backend,
+            fp16=fp16,
         )
 
         img1 = bits_as(img1, output0)
 
         # scene change
-        if hasattr(core, 'akarin') and hasattr(core.akarin, 'Select'):
-            interpolated = core.akarin.Select([output0, img1], img1, 'x._SceneChangeNext 1 0 ?')
+        if hasattr(core, "akarin") and hasattr(core.akarin, "Select"):
+            interpolated = core.akarin.Select(
+                [output0, img1], img1, "x._SceneChangeNext 1 0 ?"
+            )
         else:
+
             def handler(n: int, f: vs.VideoFrame) -> vs.VideoNode:
-                if f.props.get('_SceneChangeNext'):
+                if f.props.get("_SceneChangeNext"):
                     return img1
                 return output0
+
             interpolated = core.std.FrameEval(output0, handler, img1)
 
         clip = bits_as(clip, output0)
@@ -750,10 +845,15 @@ def DRBA(
         if multi == 2:
             res = core.std.Interleave([clip, interpolated])
         else:
-            res = core.std.Interleave([
-                clip,
-                *(interpolated.std.SelectEvery(cycle=multi-1, offsets=i) for i in range(multi - 1))
-            ])
+            res = core.std.Interleave(
+                [
+                    clip,
+                    *(
+                        interpolated.std.SelectEvery(cycle=multi - 1, offsets=i)
+                        for i in range(multi - 1)
+                    ),
+                ]
+            )
 
         if clip.fps_num != 0 and clip.fps_den != 0:
             return res.std.AssumeFPS(fpsnum=clip.fps_num * multi, fpsden=clip.fps_den)
@@ -767,7 +867,7 @@ def DRBA(
 
         dst_fps = src_fps * multi
         src_frames = clip.num_frames
-        dst_frames = min(int(src_frames * multi), 2 ** 31 - 1)
+        dst_frames = min(int(src_frames * multi), 2**31 - 1)
 
         duration_rel = src_fps / dst_fps
         dst_duration = duration_rel.numerator
@@ -779,36 +879,49 @@ def DRBA(
             def img0_func(n: int) -> vs.VideoNode:
                 left_index = dst_duration * n // src_duration
                 return clip[max(0, left_index - 1)]
+
             img0_clip = core.std.FrameEval(temp, img0_func)
 
             def img1_func(n: int) -> vs.VideoNode:
                 return clip[dst_duration * n // src_duration]
+
             img1_clip = core.std.FrameEval(temp, img1_func)
 
             def img2_func(n: int) -> vs.VideoNode:
                 # no out of range access because of function filter_sc
                 return clip[dst_duration * n // src_duration + 1]
+
             img2_clip = core.std.FrameEval(temp, img2_func)
 
             def img3_func(n: int) -> vs.VideoNode:
                 left_index = dst_duration * n // src_duration
                 return clip[min(src_frames - 1, left_index + 2)]
+
             img3_clip = core.std.FrameEval(temp, img3_func)
 
             temp_gray = core.std.BlankClip(temp, format=gray_format, keep=True)
+
             def timepoint_func(n: int) -> vs.VideoNode:
                 current_time = dst_duration * n
                 left_index = current_time // src_duration
                 left_time = src_duration * left_index
                 tp = (current_time - left_time) / src_duration
                 return temp_gray.std.BlankClip(color=tp, keep=True)
+
             tp_clip = core.std.FrameEval(temp_gray, timepoint_func)
 
             output0 = DRBAMerge(
-                clip0=img0_clip, clip1=img1_clip, clip2=img2_clip, clip3=img3_clip, mask=tp_clip,
-                tiles=tiles, tilesize=tilesize, overlap=overlap,
-                model=model, backend=backend,
-                fp16=fp16, int8=int8
+                clip0=img0_clip,
+                clip1=img1_clip,
+                clip2=img2_clip,
+                clip3=img3_clip,
+                mask=tp_clip,
+                tiles=tiles,
+                tilesize=tilesize,
+                overlap=overlap,
+                model=model,
+                backend=backend,
+                fp16=fp16,
             )
 
             left0 = bits_as(img1_clip, output0)
@@ -817,9 +930,9 @@ def DRBA(
                 current_time = dst_duration * n
                 left_index = current_time // src_duration
                 if (
-                    current_time % src_duration == 0 or
-                    left_index + 1 >= src_frames or
-                    f.props.get("_SceneChangeNext", False)
+                    current_time % src_duration == 0
+                    or left_index + 1 >= src_frames
+                    or f.props.get("_SceneChangeNext", False)
                 ):
                     return left0
                 else:
@@ -827,13 +940,16 @@ def DRBA(
 
             res = core.std.FrameEval(output0, filter_sc, left0)
         else:
-            if not hasattr(core, 'akarin') or \
-                not hasattr(core.akarin, 'PropExpr') or \
-                not hasattr(core.akarin, 'PickFrames'):
+            if (
+                not hasattr(core, "akarin")
+                or not hasattr(core.akarin, "PropExpr")
+                or not hasattr(core.akarin, "PickFrames")
+            ):
                 raise RuntimeError(
-                    'fractional multi requires plugin akarin '
-                    '(https://github.com/AkarinVS/vapoursynth-plugin/releases)'
-                    ', version v0.96g or later.')
+                    "fractional multi requires plugin akarin "
+                    "(https://github.com/AkarinVS/vapoursynth-plugin/releases)"
+                    ", version v0.96g or later."
+                )
 
             img0_indices = []
             left_indices = []
@@ -868,23 +984,38 @@ def DRBA(
             img2 = core.akarin.PickFrames(clip, right_indices)
             img3 = core.akarin.PickFrames(clip, img3_indices)
 
-            tp_clip = core.std.BlankClip(clip, format=gray_format, length=len(timepoints))
-            tp_clip = tp_clip.akarin.PropExpr(lambda: dict(_tp=timepoints)).akarin.Expr('x._tp')
+            tp_clip = core.std.BlankClip(
+                clip, format=gray_format, length=len(timepoints)
+            )
+            tp_clip = tp_clip.akarin.PropExpr(lambda: dict(_tp=timepoints)).akarin.Expr(
+                "x._tp"
+            )
 
             output0 = DRBAMerge(
-                clip0=img0, clip1=img1, clip2=img2, clip3=img3, mask=tp_clip,
-                tiles=tiles, tilesize=tilesize, overlap=overlap,
-                model=model, backend=backend,
-                fp16=fp16, int8=int8
+                clip0=img0,
+                clip1=img1,
+                clip2=img2,
+                clip3=img3,
+                mask=tp_clip,
+                tiles=tiles,
+                tilesize=tilesize,
+                overlap=overlap,
+                model=model,
+                backend=backend,
+                fp16=fp16,
             )
 
             clip0 = bits_as(clip, output0)
             left0 = bits_as(img1, output0)
-            output = core.akarin.Select([output0, left0], left0, 'x._SceneChangeNext 1 0 ?')
+            output = core.akarin.Select(
+                [output0, left0], left0, "x._SceneChangeNext 1 0 ?"
+            )
             res = core.akarin.PickFrames(clip0 + output, output_indices)
 
         if clip.fps_num != 0 and clip.fps_den != 0:
-            return res.std.AssumeFPS(fpsnum = dst_fps.numerator, fpsden = dst_fps.denominator)
+            return res.std.AssumeFPS(
+                fpsnum=dst_fps.numerator, fpsden=dst_fps.denominator
+            )
         else:
             return res
 
@@ -917,13 +1048,13 @@ def get_engine_path(
         )
 
     identity = (
-        shape_str +
-        (f"_workspace{workspace}" if workspace is not None else "") +
-        f"_opt{builder_optimization_level}" +
-        (f"_max-aux-streams{max_aux_streams}" if max_aux_streams is not None else "") +
-        f"_{device_name}" +
-        ("_rtx" if is_rtx else "") +
-        f"_{checksum:x}"
+        shape_str
+        + (f"_workspace{workspace}" if workspace is not None else "")
+        + f"_opt{builder_optimization_level}"
+        + (f"_max-aux-streams{max_aux_streams}" if max_aux_streams is not None else "")
+        + f"_{device_name}"
+        + ("_rtx" if is_rtx else "")
+        + f"_{checksum:x}"
     )
 
     dirname, basename = os.path.split(network_path)
@@ -945,7 +1076,9 @@ def get_engine_path(
             use_short_path = True
 
     if use_short_path:
-        return os.path.join(dirname, f"{zlib.crc32((f'{basename}.{identity}').encode()):x}.engine")
+        return os.path.join(
+            dirname, f"{zlib.crc32((f'{basename}.{identity}').encode()):x}.engine"
+        )
     else:
         return f"{os.path.join(dirname, basename)}.{identity}.engine"
 
@@ -984,7 +1117,7 @@ def trtexec(
 
     try:
         device_name = core.trt.DeviceProperties(device_id)["name"].decode()
-        device_name = device_name.replace(' ', '-')
+        device_name = device_name.replace(" ", "-")
     except AttributeError:
         device_name = f"device{device_id}"
 
@@ -1008,11 +1141,13 @@ def trtexec(
     # do not consider alternative path when the engine_folder is given
     if engine_folder is None:
         alter_engine_path = os.path.join(
-            tempfile.gettempdir(),
-            os.path.splitdrive(engine_path)[1][1:]
+            tempfile.gettempdir(), os.path.splitdrive(engine_path)[1][1:]
         )
 
-        if os.access(alter_engine_path, mode=os.R_OK) and os.path.getsize(alter_engine_path) >= 1024:
+        if (
+            os.access(alter_engine_path, mode=os.R_OK)
+            and os.path.getsize(alter_engine_path) >= 1024
+        ):
             return alter_engine_path
 
     try:
@@ -1037,20 +1172,24 @@ def trtexec(
         f"--onnx={network_path}",
         f"--timingCacheFile={engine_path}.cache",
         f"--device={device_id}",
-        f"--saveEngine={engine_path}"
+        f"--saveEngine={engine_path}",
     ]
 
     if workspace is not None:
         args.append(f"--memPoolSize=workspace:{workspace}")
 
     if static_shape:
-        args.append(f"--shapes={input_name}:1x{channels}x{opt_shapes[1]}x{opt_shapes[0]}")
+        args.append(
+            f"--shapes={input_name}:1x{channels}x{opt_shapes[1]}x{opt_shapes[0]}"
+        )
     else:
-        args.extend([
-            f"--minShapes={input_name}:1x{channels}x{min_shapes[1]}x{min_shapes[0]}",
-            f"--optShapes={input_name}:1x{channels}x{opt_shapes[1]}x{opt_shapes[0]}",
-            f"--maxShapes={input_name}:1x{channels}x{max_shapes[1]}x{max_shapes[0]}"
-        ])
+        args.extend(
+            [
+                f"--minShapes={input_name}:1x{channels}x{min_shapes[1]}x{min_shapes[0]}",
+                f"--optShapes={input_name}:1x{channels}x{opt_shapes[1]}x{opt_shapes[0]}",
+                f"--maxShapes={input_name}:1x{channels}x{max_shapes[1]}x{max_shapes[0]}",
+            ]
+        )
 
     if verbose:
         args.append("--verbose")
@@ -1100,17 +1239,18 @@ def trtexec(
             env.update(**custom_env)
             subprocess.run(args, env=env, check=True, stdout=sys.stderr)
         else:
-            time_str = time.strftime('%y%m%d_%H%M%S', time.localtime())
+            time_str = time.strftime("%y%m%d_%H%M%S", time.localtime())
 
             log_filename = os.path.join(
-                tempfile.gettempdir(),
-                f"trtexec_{time_str}.log"
+                tempfile.gettempdir(), f"trtexec_{time_str}.log"
             )
 
             env = {env_key: log_filename, "CUDA_MODULE_LOADING": "LAZY"}
             env.update(**custom_env)
 
-            completed_process = subprocess.run(args, env=env, check=False, stdout=sys.stderr)
+            completed_process = subprocess.run(
+                args, env=env, check=False, stdout=sys.stderr
+            )
 
             if completed_process.returncode == 0:
                 try:
@@ -1119,7 +1259,9 @@ def trtexec(
                     pass
             else:
                 if os.path.exists(log_filename):
-                    raise RuntimeError(f"trtexec execution fails, log has been written to {log_filename}")
+                    raise RuntimeError(
+                        f"trtexec execution fails, log has been written to {log_filename}"
+                    )
                 else:
                     raise RuntimeError(f"trtexec execution fails but no log is found")
     else:
@@ -1162,7 +1304,7 @@ def tensorrt_rtx(
 
     try:
         device_name = core.trt_rtx.DeviceProperties(device_id)["name"].decode()
-        device_name = device_name.replace(' ', '-')
+        device_name = device_name.replace(" ", "-")
     except AttributeError:
         device_name = f"device{device_id}"
 
@@ -1187,11 +1329,13 @@ def tensorrt_rtx(
     # do not consider alternative path when the engine_folder is given
     if engine_folder is None:
         alter_engine_path = os.path.join(
-            tempfile.gettempdir(),
-            os.path.splitdrive(engine_path)[1][1:]
+            tempfile.gettempdir(), os.path.splitdrive(engine_path)[1][1:]
         )
 
-        if os.access(alter_engine_path, mode=os.R_OK) and os.path.getsize(alter_engine_path) >= 1024:
+        if (
+            os.access(alter_engine_path, mode=os.R_OK)
+            and os.path.getsize(alter_engine_path) >= 1024
+        ):
             return alter_engine_path
 
     try:
@@ -1224,14 +1368,18 @@ def tensorrt_rtx(
         args.append(f"--memPoolSize=workspace:{workspace}")
 
     if static_shape:
-        args.append(f"--shapes={input_name}:1x{channels}x{opt_shapes[1]}x{opt_shapes[0]}")
+        args.append(
+            f"--shapes={input_name}:1x{channels}x{opt_shapes[1]}x{opt_shapes[0]}"
+        )
     else:
-        args.extend([
-            f"--minShapes={input_name}:1x{channels}x{min_shapes[1]}x{min_shapes[0]}",
-            f"--optShapes={input_name}:1x{channels}x{opt_shapes[1]}x{opt_shapes[0]}",
-            f"--maxShapes={input_name}:1x{channels}x{max_shapes[1]}x{max_shapes[0]}",
-            "--specializeStrategyDS=eager"
-        ])
+        args.extend(
+            [
+                f"--minShapes={input_name}:1x{channels}x{min_shapes[1]}x{min_shapes[0]}",
+                f"--optShapes={input_name}:1x{channels}x{opt_shapes[1]}x{opt_shapes[0]}",
+                f"--maxShapes={input_name}:1x{channels}x{max_shapes[1]}x{max_shapes[0]}",
+                "--specializeStrategyDS=eager",
+            ]
+        )
 
     if verbose:
         args.append("--verbose")
@@ -1246,10 +1394,7 @@ def tensorrt_rtx(
     args.append(f"--tacticSources={','.join(tactic_sources)}")
 
     if use_cuda_graph:
-        args.extend((
-            "--useCudaGraph",
-            "--noDataTransfers"
-        ))
+        args.extend(("--useCudaGraph", "--noDataTransfers"))
     else:
         args.append("--skipInference")
 
@@ -1275,7 +1420,9 @@ def tensorrt_rtx(
 
 
 def calc_size(width: int, tiles: int, overlap: int, multiple: int = 1) -> int:
-    return math.ceil((width + 2 * overlap * (tiles - 1)) / (tiles * multiple)) * multiple
+    return (
+        math.ceil((width + 2 * overlap * (tiles - 1)) / (tiles * multiple)) * multiple
+    )
 
 
 def calc_tilesize(
@@ -1285,7 +1432,7 @@ def calc_tilesize(
     height: int,
     multiple: int,
     overlap_w: int,
-    overlap_h: int
+    overlap_h: int,
 ) -> typing.Tuple[typing.Tuple[int, int], typing.Tuple[int, int]]:
 
     if tilesize is None:
@@ -1309,10 +1456,7 @@ def calc_tilesize(
     return (tile_w, tile_h), (overlap_w, overlap_h)
 
 
-def init_backend(
-    backend: backendT,
-    trt_opt_shapes: typing.Tuple[int, int]
-) -> backendT:
+def init_backend(backend: backendT, trt_opt_shapes: typing.Tuple[int, int]) -> backendT:
 
     if backend is Backend.TRT:  # type: ignore
         backend = Backend.TRT()
@@ -1342,7 +1486,7 @@ def _inference(
     path_is_serialization: bool = False,
     input_name: str = "input",
     flexible_output_prop: typing.Optional[str] = None,
-    batch_size: int = 1
+    batch_size: int = 1,
 ) -> typing.Union[vs.VideoNode, typing.Dict[str, typing.Any]]:
 
     if not path_is_serialization:
@@ -1360,7 +1504,9 @@ def _inference(
         if isinstance(backend, Backend.TRT):
             raise ValueError('"path_is_serialization" must be False for trt backend')
         elif isinstance(backend, Backend.TRT_RTX):
-            raise ValueError('"path_is_serialization" must be False for trt_rtx backend')
+            raise ValueError(
+                '"path_is_serialization" must be False for trt_rtx backend'
+            )
 
     if not isinstance(batch_size, int) or batch_size < 1:
         raise ValueError('"batch_size" must be a positve integer')
@@ -1377,7 +1523,9 @@ def _inference(
         graph = model.graph
         in_channels = graph.input[0].type.tensor_type.shape.dim[1].dim_value
         graph.input[0].type.tensor_type.shape.dim[1].dim_value *= batch_size
-        graph.output[0].type.tensor_type.shape.dim[1].dim_param = "_vsmlrt_output_channels"
+        graph.output[0].type.tensor_type.shape.dim[
+            1
+        ].dim_param = "_vsmlrt_output_channels"
 
         input_name = graph.input[0].name
         output_name = graph.output[0].name
@@ -1390,29 +1538,41 @@ def _inference(
                 if name == output_name:
                     node.output[i] = "_vsmlrt_output"
 
-        graph.node.insert(1, onnx.helper.make_node(
-            op_type="Constant",
-            inputs=[],
-            outputs=["_vsmlrt_input_shape"],
-            value=onnx.numpy_helper.from_array(np.array([-1, in_channels, 0, 0]))
-        ))
-        graph.node.insert(2, onnx.helper.make_node(
-            op_type="Reshape",
-            inputs=[input_name, "_vsmlrt_input_shape"],
-            outputs=["_vsmlrt_input"]
-        ))
+        graph.node.insert(
+            1,
+            onnx.helper.make_node(
+                op_type="Constant",
+                inputs=[],
+                outputs=["_vsmlrt_input_shape"],
+                value=onnx.numpy_helper.from_array(np.array([-1, in_channels, 0, 0])),
+            ),
+        )
+        graph.node.insert(
+            2,
+            onnx.helper.make_node(
+                op_type="Reshape",
+                inputs=[input_name, "_vsmlrt_input_shape"],
+                outputs=["_vsmlrt_input"],
+            ),
+        )
 
-        graph.node.insert(-1, onnx.helper.make_node(
-            op_type="Constant",
-            inputs=[],
-            outputs=["_vsmlrt_output_shape"],
-            value=onnx.numpy_helper.from_array(np.array([1, -1, 0, 0]))
-        ))
-        graph.node.insert(-1, onnx.helper.make_node(
-            op_type="Reshape",
-            inputs=["_vsmlrt_output", "_vsmlrt_output_shape"],
-            outputs=[output_name]
-        ))
+        graph.node.insert(
+            -1,
+            onnx.helper.make_node(
+                op_type="Constant",
+                inputs=[],
+                outputs=["_vsmlrt_output_shape"],
+                value=onnx.numpy_helper.from_array(np.array([1, -1, 0, 0])),
+            ),
+        )
+        graph.node.insert(
+            -1,
+            onnx.helper.make_node(
+                op_type="Reshape",
+                inputs=["_vsmlrt_output", "_vsmlrt_output_shape"],
+                outputs=[output_name],
+            ),
+        )
 
         if backend.supports_onnx_serialization:
             network_path = model.SerializeToString()
@@ -1424,13 +1584,11 @@ def _inference(
 
         pad = (batch_size - clips[0].num_frames % batch_size) % batch_size
         if pad:
-            clips = [clip.std.DuplicateFrames([clip.num_frames - 1] * pad) for clip in clips]
+            clips = [
+                clip.std.DuplicateFrames([clip.num_frames - 1] * pad) for clip in clips
+            ]
 
-        clips = [
-            clip[i::batch_size]
-            for i in range(batch_size)
-            for clip in clips
-        ]
+        clips = [clip[i::batch_size] for i in range(batch_size) for clip in clips]
 
         flexible_output_prop_orig = flexible_output_prop
 
@@ -1442,7 +1600,9 @@ def _inference(
         kwargs["flexible_output_prop"] = flexible_output_prop
 
     if isinstance(backend, Backend.ORT_DML):
-        version_list = core.ort.Version().get("onnxruntime_version", b"0.0.0").split(b'.')
+        version_list = (
+            core.ort.Version().get("onnxruntime_version", b"0.0.0").split(b".")
+        )
         if len(version_list) != 3:
             version = (0, 0, 0)
         else:
@@ -1452,14 +1612,16 @@ def _inference(
             kwargs["output_format"] = backend.output_format
 
         ret = core.ort.Model(
-            clips, network_path,
-            provider="DML", builtin=False,
+            clips,
+            network_path,
+            provider="DML",
+            builtin=False,
             device_id=backend.device_id,
             num_streams=backend.num_streams,
             verbosity=backend.verbosity,
             fp16=False,
             path_is_serialization=path_is_serialization,
-            **kwargs
+            **kwargs,
         )
     elif isinstance(backend, Backend.TRT):
         network_path = typing.cast(str, network_path)
@@ -1495,12 +1657,13 @@ def _inference(
             l2_limit_for_tiling=backend.l2_limit_for_tiling,
         )
         ret = core.trt.Model(
-            clips, engine_path,
+            clips,
+            engine_path,
             device_id=backend.device_id,
             use_cuda_graph=backend.use_cuda_graph,
             num_streams=backend.num_streams,
             verbosity=4 if backend.verbose else 2,
-            **kwargs
+            **kwargs,
         )
     elif isinstance(backend, Backend.TRT_RTX):
         network_path = typing.cast(str, network_path)
@@ -1534,15 +1697,16 @@ def _inference(
             l2_limit_for_tiling=backend.l2_limit_for_tiling,
         )
         ret = core.trt_rtx.Model(
-            clips, engine_path,
+            clips,
+            engine_path,
             device_id=backend.device_id,
             use_cuda_graph=backend.use_cuda_graph,
             num_streams=backend.num_streams,
             verbosity=4 if backend.verbose else 2,
-            **kwargs
+            **kwargs,
         )
     else:
-        raise TypeError(f'unknown backend {backend}')
+        raise TypeError(f"unknown backend {backend}")
 
     if batch_size > 1:
         clip = ret["clip"]
@@ -1555,7 +1719,7 @@ def _inference(
         if flexible_output_prop_orig is None:
             if num_planes == batch_size * 3:
                 clips = [
-                    core.std.ShufflePlanes(clips[i:i+3], [0] * 3, vs.RGB)
+                    core.std.ShufflePlanes(clips[i : i + 3], [0] * 3, vs.RGB)
                     for i in range(0, num_planes, 3)
                 ]
             elif num_planes != batch_size:
@@ -1565,7 +1729,10 @@ def _inference(
             if pad:
                 ret = ret[:-pad]
         else:
-            clips = [core.std.Interleave(clips[i::batch_size]) for i in range(num_planes // batch_size)]
+            clips = [
+                core.std.Interleave(clips[i::batch_size])
+                for i in range(num_planes // batch_size)
+            ]
             if pad:
                 clips = [clip[:-pad] for clip in clips]
 
@@ -1586,31 +1753,38 @@ def inference_with_fallback(
     backend: backendT,
     path_is_serialization: bool = False,
     input_name: str = "input",
-    batch_size: int = 1 # experimental
+    batch_size: int = 1,  # experimental
 ) -> vs.VideoNode:
 
     try:
         ret = _inference(
-            clips=clips, network_path=network_path,
-            overlap=overlap, tilesize=tilesize,
+            clips=clips,
+            network_path=network_path,
+            overlap=overlap,
+            tilesize=tilesize,
             backend=backend,
             path_is_serialization=path_is_serialization,
             input_name=input_name,
-            batch_size=batch_size
+            batch_size=batch_size,
         )
     except Exception as e:
         if fallback_backend is not None:
             import logging
+
             logger = logging.getLogger("vsmlrt")
-            logger.warning(f'"{backend}" fails, trying fallback backend "{fallback_backend}"')
+            logger.warning(
+                f'"{backend}" fails, trying fallback backend "{fallback_backend}"'
+            )
 
             ret = _inference(
-                clips=clips, network_path=network_path,
-                overlap=overlap, tilesize=tilesize,
+                clips=clips,
+                network_path=network_path,
+                overlap=overlap,
+                tilesize=tilesize,
                 backend=fallback_backend,
                 path_is_serialization=path_is_serialization,
                 input_name=input_name,
-                batch_size=batch_size
+                batch_size=batch_size,
             )
         else:
             raise e
@@ -1625,7 +1799,7 @@ def inference(
     tilesize: typing.Optional[typing.Tuple[int, int]] = None,
     backend: backendT = Backend.ORT_DML(),
     input_name: typing.Optional[str] = "input",
-    batch_size: int = 1, # experimental
+    batch_size: int = 1,  # experimental
     path_is_serialization: bool = False,
 ) -> vs.VideoNode:
 
@@ -1648,7 +1822,7 @@ def inference(
         backend=backend,
         path_is_serialization=path_is_serialization,
         input_name=input_name,
-        batch_size=batch_size
+        batch_size=batch_size,
     )
 
 
@@ -1661,33 +1835,40 @@ def flexible_inference_with_fallback(
     path_is_serialization: bool = False,
     input_name: str = "input",
     flexible_output_prop: str = "vsmlrt_flexible",
-    batch_size: int = 1 # experimental
+    batch_size: int = 1,  # experimental
 ) -> typing.List[vs.VideoNode]:
 
     try:
         ret = _inference(
-            clips=clips, network_path=network_path,
-            overlap=overlap, tilesize=tilesize,
+            clips=clips,
+            network_path=network_path,
+            overlap=overlap,
+            tilesize=tilesize,
             backend=backend,
             path_is_serialization=path_is_serialization,
             input_name=input_name,
             flexible_output_prop=flexible_output_prop,
-            batch_size=batch_size
+            batch_size=batch_size,
         )
     except Exception as e:
         if fallback_backend is not None:
             import logging
+
             logger = logging.getLogger("vsmlrt")
-            logger.warning(f'"{backend}" fails, trying fallback backend "{fallback_backend}"')
+            logger.warning(
+                f'"{backend}" fails, trying fallback backend "{fallback_backend}"'
+            )
 
             ret = _inference(
-                clips=clips, network_path=network_path,
-                overlap=overlap, tilesize=tilesize,
+                clips=clips,
+                network_path=network_path,
+                overlap=overlap,
+                tilesize=tilesize,
                 backend=fallback_backend,
                 path_is_serialization=path_is_serialization,
                 input_name=input_name,
                 flexible_output_prop=flexible_output_prop,
-                batch_size=batch_size
+                batch_size=batch_size,
             )
         else:
             raise e
@@ -1712,7 +1893,7 @@ def flexible_inference(
     backend: backendT = Backend.ORT_DML(),
     input_name: typing.Optional[str] = "input",
     flexible_output_prop: str = "vsmlrt_flexible",
-    batch_size: int = 1 # experimental
+    batch_size: int = 1,  # experimental
 ) -> typing.List[vs.VideoNode]:
 
     if isinstance(clips, vs.VideoNode):
@@ -1735,12 +1916,13 @@ def flexible_inference(
         path_is_serialization=False,
         input_name=input_name,
         flexible_output_prop=flexible_output_prop,
-        batch_size=batch_size
+        batch_size=batch_size,
     )
 
 
 def get_input_name(network_path: str) -> str:
     import onnx
+
     model = onnx.load(network_path)
     return model.graph.input[0].name
 
@@ -1750,22 +1932,25 @@ def bits_as(clip: vs.VideoNode, target: vs.VideoNode) -> vs.VideoNode:
         return clip
     else:
         is_api4 = hasattr(vs, "__api_version__") and vs.__api_version__.api_major == 4
-        query_video_format = core.query_video_format if is_api4 else core.register_format
+        query_video_format = (
+            core.query_video_format if is_api4 else core.register_format
+        )
         format = query_video_format(
             color_family=clip.format.color_family,
             sample_type=clip.format.sample_type,
             bits_per_sample=target.format.bits_per_sample,
             subsampling_w=clip.format.subsampling_w,
-            subsampling_h=clip.format.subsampling_h
+            subsampling_h=clip.format.subsampling_h,
         )
         return clip.resize.Point(format=format)
 
 
 class BackendV2:
-    """ simplified backend interfaces with keyword-only arguments """
+    """simplified backend interfaces with keyword-only arguments"""
 
     @staticmethod
-    def TRT(*,
+    def TRT(
+        *,
         num_streams: int = 1,
         workspace: typing.Optional[int] = None,
         static_shape: bool = True,
@@ -1773,20 +1958,23 @@ class BackendV2:
         opt_shapes: typing.Optional[typing.Tuple[int, int]] = None,
         max_shapes: typing.Optional[typing.Tuple[int, int]] = None,
         device_id: int = 0,
-        **kwargs
+        **kwargs,
     ) -> Backend.TRT:
 
         return Backend.TRT(
             num_streams=num_streams,
             workspace=workspace,
             static_shape=static_shape,
-            min_shapes=min_shapes, opt_shapes=opt_shapes, max_shapes=max_shapes,
+            min_shapes=min_shapes,
+            opt_shapes=opt_shapes,
+            max_shapes=max_shapes,
             device_id=device_id,
-            **kwargs
+            **kwargs,
         )
 
     @staticmethod
-    def TRT_RTX(*,
+    def TRT_RTX(
+        *,
         num_streams: int = 1,
         workspace: typing.Optional[int] = None,
         use_cuda_graph: bool = False,
@@ -1795,30 +1983,27 @@ class BackendV2:
         opt_shapes: typing.Optional[typing.Tuple[int, int]] = None,
         max_shapes: typing.Optional[typing.Tuple[int, int]] = None,
         device_id: int = 0,
-        **kwargs
+        **kwargs,
     ) -> Backend.TRT_RTX:
 
         return Backend.TRT_RTX(
             num_streams=num_streams,
-            workspace=workspace, use_cuda_graph=use_cuda_graph,
+            workspace=workspace,
+            use_cuda_graph=use_cuda_graph,
             static_shape=static_shape,
-            min_shapes=min_shapes, opt_shapes=opt_shapes, max_shapes=max_shapes,
+            min_shapes=min_shapes,
+            opt_shapes=opt_shapes,
+            max_shapes=max_shapes,
             device_id=device_id,
-            **kwargs
+            **kwargs,
         )
 
     @staticmethod
-    def ORT_DML(*,
-        device_id: int = 0,
-        num_streams: int = 1,
-        **kwargs
+    def ORT_DML(
+        *, device_id: int = 0, num_streams: int = 1, **kwargs
     ) -> Backend.ORT_DML:
 
-        return Backend.ORT_DML(
-            device_id=device_id,
-            num_streams=num_streams,
-            **kwargs
-        )
+        return Backend.ORT_DML(device_id=device_id, num_streams=num_streams, **kwargs)
 
 
 def fmtc_resample(clip: vs.VideoNode, **kwargs) -> vs.VideoNode:

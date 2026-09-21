@@ -153,7 +153,7 @@ def RIFE(
     sc_mode: bool = True,
     gpu: int = 0,
     static: bool = True,
-    turbo: int = 1,
+    precision: int = 16,
 ) -> vs.VideoNode:
     import fractions
 
@@ -161,7 +161,9 @@ def RIFE(
     colorlv = getattr(input.get_frame(0).props, "_ColorRange", 0)
     clip = vs.core.misc.SCDetect(clip=input, threshold=0.15) if sc_mode else input
     clip = vs.core.resize.Bilinear(
-        clip, format=vs.RGBH if turbo else vs.RGBS, matrix_in_s="709"
+        clip=clip,
+        format=vs.RGBH if precision == 16 else vs.RGBS,
+        matrix_in_s="709",
     )
     if abs:
         fpsin = fractions.Fraction(fps_in)
@@ -175,8 +177,7 @@ def RIFE(
         multi=fractions.Fraction(fps_num, fps_den),
         video_player=True,
         model=model,
-        fp16=True if turbo == 1 else False,
-        int8=True if turbo == 2 else False,
+        fp16=precision == 16,
         backend=get_backend(
             w_in=input.width,
             h_in=input.height,
@@ -202,7 +203,7 @@ def DRBA(
     sc_mode: bool = True,
     gpu: int = 0,
     static: bool = True,
-    turbo: int = 1,
+    precision: int = 16,
 ) -> vs.VideoNode:
     import fractions
 
@@ -210,7 +211,9 @@ def DRBA(
     colorlv = getattr(input.get_frame(0).props, "_ColorRange", 0)
     clip = vs.core.misc.SCDetect(clip=input, threshold=0.15) if sc_mode else input
     clip = vs.core.resize.Bilinear(
-        clip, format=vs.RGBH if turbo else vs.RGBS, matrix_in_s="709"
+        clip=clip,
+        format=vs.RGBH if precision == 16 else vs.RGBS,
+        matrix_in_s="709",
     )
     if abs:
         fpsin = fractions.Fraction(fps_in)
@@ -224,8 +227,7 @@ def DRBA(
         multi=fractions.Fraction(fps_num, fps_den),
         video_player=True,
         model=model,
-        fp16=True if turbo == 1 else False,
-        int8=True if turbo == 2 else False,
+        fp16=precision == 16,
         backend=get_backend(
             w_in=input.width,
             h_in=input.height,
@@ -246,18 +248,19 @@ def RealESRGAN(
     model: int = 5008,
     gpu: int = 0,
     static: bool = True,
-    turbo: int = 1,
+    precision: int = 16,
 ) -> vs.VideoNode:
     fmt_in = input.format.id
     colorlv = getattr(input.get_frame(0).props, "_ColorRange", 0)
     clip = vs.core.resize.Bilinear(
-        input, format=vs.RGBH if turbo else vs.RGBS, matrix_in_s="709"
+        clip=input,
+        format=vs.RGBH if precision == 16 else vs.RGBS,
+        matrix_in_s="709",
     )
     res = vsmlrt.RealESRGAN(
         clip=clip,
         model=model,
-        fp16=True if turbo == 1 else False,
-        int8=True if turbo == 2 else False,
+        fp16=precision == 16,
         backend=get_backend(
             w_in=input.width,
             h_in=input.height,
@@ -277,7 +280,7 @@ def UAI(
     model_pth: str = "",
     gpu: int = 0,
     static: bool = True,
-    turbo: int = 1,
+    precision: int = 16,
 ) -> vs.VideoNode:
     import os
     import onnx
@@ -293,10 +296,8 @@ def UAI(
         ).decode()
     else:
         plg_dir = os.path.dirname(vs.core.ort.Version()["path"]).decode()
-    if turbo == 1:
+    if precision == 16:
         model_pth += "_fp16"
-    elif turbo == 2:
-        model_pth += "_int8"
     model_pth += ".onnx"
     mdl_pth_rel = plg_dir + "/models/uai/" + model_pth
     mdl_pth = mdl_pth_rel if os.path.exists(mdl_pth_rel) else model_pth
@@ -328,7 +329,9 @@ def UAI(
         return output
     else:
         clip = vs.core.resize.Bilinear(
-            clip=input, format=vs.RGBH if turbo else vs.RGBS, matrix_in_s="709"
+            clip=input,
+            format=vs.RGBH if precision == 16 else vs.RGBS,
+            matrix_in_s="709",
         )
         infer = vsmlrt.inference(
             clips=clip,

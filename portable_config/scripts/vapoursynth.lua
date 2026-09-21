@@ -34,7 +34,7 @@ local vs = {
                 sc = 'True',
                 gpu = '0',
                 static = 'False',
-                turbo = '1',
+                precision = '16',
             }
         },
         drba = {
@@ -52,7 +52,7 @@ local vs = {
                 sc = 'False',
                 gpu = '0',
                 static = 'False',
-                turbo = '1',
+                precision = '16',
             }
         },
         realesrgan = {
@@ -69,7 +69,7 @@ local vs = {
                 hmax = '2160',
                 gpu = '0',
                 static = 'False',
-                turbo = '1',
+                precision = '16',
             }
         },
         uai = {
@@ -86,7 +86,7 @@ local vs = {
                 hmax = '2160',
                 gpu = '0',
                 static = 'False',
-                turbo = '1',
+                precision = '16',
             }
         }
     }
@@ -139,9 +139,9 @@ local settings_menu = {
                 {
                     title = '限制输入',
                     items = {
+                        { title = '30fps',  value = 'set svp fmax 30 over' },
                         { title = '60fps',  value = 'set svp fmax 60 over' },
-                        { title = '120fps', value = 'set svp fmax 120 over' },
-                        { title = '240fps', value = 'set svp fmax 240 over' }
+                        { title = '120fps', value = 'set svp fmax 120 over' }
                     }
                 },
                 {
@@ -192,9 +192,8 @@ local settings_menu = {
                 {
                     title = '模型精度',
                     items = {
-                        { title = 'int8', value = 'set rife turbo 2 over' },
-                        { title = 'fp16', value = 'set rife turbo 1 over' },
-                        { title = 'fp32', value = 'set rife turbo 0 over' }
+                        { title = 'fp16', value = 'set rife precision 16 over' },
+                        { title = 'fp32', value = 'set rife precision 32 over' }
                     }
                 },
                 {
@@ -211,9 +210,9 @@ local settings_menu = {
                 {
                     title = '限制输入',
                     items = {
-                        { title = '30fps', value = 'set rife fmax 30 over' },
-                        { title = '60fps', value = 'set rife fmax 60 over' },
-                        { title = '90fps', value = 'set rife fmax 90 over' }
+                        { title = '30fps',  value = 'set rife fmax 30 over' },
+                        { title = '60fps',  value = 'set rife fmax 60 over' },
+                        { title = '120fps', value = 'set rife fmax 120 over' }
                     }
                 },
                 {
@@ -262,9 +261,8 @@ local settings_menu = {
                 {
                     title = '模型精度',
                     items = {
-                        { title = 'int8', value = 'set drba turbo 2 over' },
-                        { title = 'fp16', value = 'set drba turbo 1 over' },
-                        { title = 'fp32', value = 'set drba turbo 0 over' }
+                        { title = 'fp16', value = 'set drba precision 16 over' },
+                        { title = 'fp32', value = 'set drba precision 32 over' }
                     }
                 },
                 {
@@ -281,9 +279,9 @@ local settings_menu = {
                 {
                     title = '限制输入',
                     items = {
-                        { title = '30fps', value = 'set drba fmax 30 over' },
-                        { title = '60fps', value = 'set drba fmax 60 over' },
-                        { title = '90fps', value = 'set drba fmax 90 over' }
+                        { title = '30fps',  value = 'set drba fmax 30 over' },
+                        { title = '60fps',  value = 'set drba fmax 60 over' },
+                        { title = '120fps', value = 'set drba fmax 120 over' }
                     }
                 },
                 {
@@ -336,9 +334,8 @@ local settings_menu = {
                 {
                     title = '模型精度',
                     items = {
-                        { title = 'int8', value = 'set realesrgan turbo 2 over' },
-                        { title = 'fp16', value = 'set realesrgan turbo 1 over' },
-                        { title = 'fp32', value = 'set realesrgan turbo 0 over' }
+                        { title = 'fp16', value = 'set realesrgan precision 16 over' },
+                        { title = 'fp32', value = 'set realesrgan precision 32 over' }
                     }
                 },
                 {
@@ -398,9 +395,8 @@ local settings_menu = {
                 {
                     title = '模型精度',
                     items = {
-                        { title = 'int8', value = 'set uai turbo 2 over' },
-                        { title = 'fp16', value = 'set uai turbo 1 over' },
-                        { title = 'fp32', value = 'set uai turbo 0 over' }
+                        { title = 'fp16', value = 'set uai precision 16 over' },
+                        { title = 'fp32', value = 'set uai precision 32 over' }
                     }
                 },
                 {
@@ -705,7 +701,7 @@ local function init(_, loaded)
             if event.action == "toggle_static" then
                 for _, arg in ipairs(args) do
                     local value = vs.modes[arg[2]].settings.static == "True" and "False" or "True"
-                    set_mode(arg[2], "static", value)
+                    set_mode(arg[2], "static", value, "over")
                 end
             else
                 for _, arg in ipairs(args) do
