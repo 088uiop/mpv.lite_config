@@ -175,7 +175,7 @@ local settings_menu = {
                 {
                     title = '后端',
                     items = {
-                        { title = 'DML', value = 'set rife be "ort_dml over"' },
+                        { title = 'DML', value = 'set rife be "ort_dml" over' },
                         { title = 'TRT', value = 'set rife be "trt" over', actions = { { name = 'toggle_static', icon = 'toggle_off', label = '静态引擎开关' } } },
                         { title = 'TRT_RTX', value = 'set rife be "trt_rtx" over', actions = { { name = 'toggle_static', icon = 'toggle_off', label = '静态引擎开关' } } }
                     }
@@ -247,7 +247,7 @@ local settings_menu = {
                 {
                     title = '后端',
                     items = {
-                        { title = 'DML', value = 'set drba be "ort_dml over"' },
+                        { title = 'DML', value = 'set drba be "ort_dml" over' },
                         { title = 'TRT', value = 'set drba be "trt" over', actions = { { name = 'toggle_static', icon = 'toggle_off', label = '静态引擎开关' } } },
                         { title = 'TRT_RTX', value = 'set drba be "trt_rtx" over', actions = { { name = 'toggle_static', icon = 'toggle_off', label = '静态引擎开关' } } }
                     }
@@ -317,7 +317,7 @@ local settings_menu = {
                 {
                     title = '后端',
                     items = {
-                        { title = 'DML', value = 'set realesrgan be "ort_dml over"' },
+                        { title = 'DML', value = 'set realesrgan be "ort_dml" over' },
                         { title = 'TRT', value = 'set realesrgan be "trt" over', actions = { { name = 'toggle_static', icon = 'toggle_off', label = '静态引擎开关' } } },
                         { title = 'TRT_RTX', value = 'set realesrgan be "trt_rtx" over', actions = { { name = 'toggle_static', icon = 'toggle_off', label = '静态引擎开关' } } }
                     }
@@ -381,7 +381,7 @@ local settings_menu = {
                 {
                     title = '后端',
                     items = {
-                        { title = 'DML', value = 'set uai be "ort_dml over"' },
+                        { title = 'DML', value = 'set uai be "ort_dml" over' },
                         { title = 'TRT', value = 'set uai be "trt" over', actions = { { name = 'toggle_static', icon = 'toggle_off', label = '静态引擎开关' } } },
                         { title = 'TRT_RTX', value = 'set uai be "trt_rtx" over', actions = { { name = 'toggle_static', icon = 'toggle_off', label = '静态引擎开关' } } }
                     }
@@ -389,10 +389,10 @@ local settings_menu = {
                 {
                     title = '模型',
                     items = {
-                        { title = 'HFA2kCompact_x2',        value = 'set uai model "HFA2kCompact_x2 over"' },
-                        { title = 'HFA2kSpan_x2',           value = 'set uai model "HFA2kSpan_x2 over"' },
-                        { title = 'ClearRealityV1_x4',      value = 'set uai model "ClearRealityV1_x4 over"' },
-                        { title = 'ClearRealityV1_Soft_x4', value = 'set uai model "ClearRealityV1_Soft_x4 over"' }
+                        { title = 'HFA2kCompact_x2',        value = 'set uai model "HFA2kCompact_x2" over' },
+                        { title = 'HFA2kSpan_x2',           value = 'set uai model "HFA2kSpan_x2" over' },
+                        { title = 'ClearRealityV1_x4',      value = 'set uai model "ClearRealityV1_x4" over' },
+                        { title = 'ClearRealityV1_Soft_x4', value = 'set uai model "ClearRealityV1_Soft_x4" over' }
                     }
                 },
                 {
