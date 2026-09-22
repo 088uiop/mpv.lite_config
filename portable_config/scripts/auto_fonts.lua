@@ -1,36 +1,36 @@
 local mp = require 'mp'
 local utils = require 'mp.utils'
 
-local fonts_dir_init = mp.get_property_native("sub-fonts-dir")
+local fonts_dir_init = mp.get_property_native('sub-fonts-dir')
 local fonts_dir_cur = fonts_dir_init
 local already_extracted = false
 
 local function set_fonts_dir(dir)
     if dir ~= fonts_dir_cur then
-        mp.set_property("sub-fonts-dir", dir)
+        mp.set_property('sub-fonts-dir', dir)
         fonts_dir_cur = dir
-        mp.msg.info("使用字体文件夹: " .. dir)
+        mp.msg.info('使用字体文件夹: ' .. dir)
     end
 end
 
 local function extract_archive(src, dst, cb)
     mp.command_native_async({
-        name = "subprocess",
-        args = { "7z", "x", src, "-o" .. dst, "-y" },
+        name = 'subprocess',
+        args = { '7z', 'x', src, '-o' .. dst, '-y' },
         playback_only = false,
         capture_stdout = true,
         capture_stderr = true
     }, function()
-        mp.msg.info("字体包解压至: " .. src .. " → " .. dst)
+        mp.msg.info('字体包解压至: ' .. src .. ' → ' .. dst)
         cb(true)
     end)
 end
 
 local function has_font_file_in(dir)
-    local files = utils.readdir(dir, "files") or {}
+    local files = utils.readdir(dir, 'files') or {}
     for _, f in ipairs(files) do
         local lf = f:lower()
-        if lf:find("%.ttf$") or lf:find("%.otf$") or lf:find("%.ttc$") then
+        if lf:find('%.ttf$') or lf:find('%.otf$') or lf:find('%.ttc$') then
             return true
         end
     end
@@ -38,10 +38,10 @@ local function has_font_file_in(dir)
 end
 
 local function find_archive_in(dir)
-    local files = utils.readdir(dir, "files") or {}
+    local files = utils.readdir(dir, 'files') or {}
     for _, f in ipairs(files) do
         local lf = f:lower()
-        if lf:find("%.7z$") or lf:find("%.zip$") or lf:find("%.rar$") then
+        if lf:find('%.7z$') or lf:find('%.zip$') or lf:find('%.rar$') then
             return utils.join_path(dir, f)
         end
     end
@@ -52,16 +52,16 @@ local function find_fonts_dir_recursive(dir, depth)
     depth = depth or 0
     if depth > 3 then return nil end
     if has_font_file_in(dir) then return dir end
-    local subdirs = utils.readdir(dir, "dirs") or {}
+    local subdirs = utils.readdir(dir, 'dirs') or {}
     for _, name in ipairs(subdirs) do
-        if name:lower():find("fonts") then
+        if name:lower():find('fonts') then
             local found = find_fonts_dir_recursive(
                 utils.join_path(dir, name), depth + 1)
             if found then return found end
         end
     end
     for _, name in ipairs(subdirs) do
-        if not name:lower():find("fonts") then
+        if not name:lower():find('fonts') then
             local found = find_fonts_dir_recursive(
                 utils.join_path(dir, name), depth + 1)
             if found then return found end
@@ -71,7 +71,7 @@ local function find_fonts_dir_recursive(dir, depth)
 end
 
 local function check_fonts_dir(dir)
-    local fonts_path = utils.join_path(dir, "fonts")
+    local fonts_path = utils.join_path(dir, 'fonts')
     if utils.readdir(fonts_path) then
         local found = find_fonts_dir_recursive(fonts_path)
         if found then
@@ -92,8 +92,8 @@ local function check_fonts_dir(dir)
             end
         end
     end
-    for _, name in ipairs(utils.readdir(dir, "dirs") or {}) do
-        if name:lower():find("fonts") then
+    for _, name in ipairs(utils.readdir(dir, 'dirs') or {}) do
+        if name:lower():find('fonts') then
             local p = utils.join_path(dir, name)
             if utils.readdir(p) then
                 local fd = find_fonts_dir_recursive(p)
@@ -108,21 +108,21 @@ local function check_fonts_dir(dir)
 end
 
 local function update_fonts_dir()
-    local path = mp.get_property_native("path")
+    local path = mp.get_property_native('path')
     if not path then return end
     local dir = utils.split_path(path)
     if not dir then return end
     if check_fonts_dir(dir) or already_extracted then return end
-    local files = utils.readdir(dir, "files") or {}
+    local files = utils.readdir(dir, 'files') or {}
     for _, name in ipairs(files) do
         local lname = name:lower()
-        if lname:find("fonts") and
-            (lname:find("%.7z$") or lname:find("%.zip$") or lname:find("%.rar$")) then
+        if lname:find('fonts') and
+            (lname:find('%.7z$') or lname:find('%.zip$') or lname:find('%.rar$')) then
             local arc = utils.join_path(dir, name)
-            local dst = utils.join_path(dir, name:gsub("%.[^.]+$", ""))
+            local dst = utils.join_path(dir, name:gsub('%.[^.]+$', ''))
             mp.command_native_async({
-                name = "subprocess",
-                args = { "cmd", "/c", "mkdir", dst },
+                name = 'subprocess',
+                args = { 'cmd', '/c', 'mkdir', dst },
                 playback_only = false
             }, function()
                 extract_archive(arc, dst, function(ok)
@@ -141,10 +141,10 @@ local function update_fonts_dir()
         end
     end
     if fonts_dir_cur ~= fonts_dir_init then
-        mp.set_property("sub-fonts-dir", fonts_dir_init)
+        mp.set_property('sub-fonts-dir', fonts_dir_init)
         fonts_dir_cur = fonts_dir_init
-        mp.msg.info("恢复默认字体路径")
+        mp.msg.info('恢复默认字体路径')
     end
 end
 
-mp.register_event("file-loaded", update_fonts_dir)
+mp.register_event('file-loaded', update_fonts_dir)

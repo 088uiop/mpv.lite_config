@@ -94,7 +94,7 @@ local vs = {
 local main_menu = {
     type = 'vs_main',
     title = 'VS选项',
-    callback = { mp.get_script_name(), "update_vs_main_menu" },
+    callback = { mp.get_script_name(), 'update_vs_main_menu' },
     items = {
         { title = '当前滤镜链: nil', selectable = false, bold = true, italic = true },
         { title = '清空', value = 'clear' },
@@ -111,7 +111,7 @@ local main_menu = {
 local settings_menu = {
     type = 'vs_settings',
     title = 'VS配置',
-    callback = { mp.get_script_name(), "update_vs_settings_menu" },
+    callback = { mp.get_script_name(), 'update_vs_settings_menu' },
     items = {
         {
             title = 'SVP 配置',
@@ -427,24 +427,24 @@ local settings_menu = {
     }
 }
 local finset_menu = {
-    type = "vs_finset",
-    title = "补帧输入帧率",
-    search_debounce = "submit",
-    search_style = "palette",
-    on_search = "callback",
-    callback = { mp.get_script_name(), "update_vs_finset_menu" },
+    type = 'vs_finset',
+    title = '补帧输入帧率',
+    search_debounce = 'submit',
+    search_style = 'palette',
+    on_search = 'callback',
+    callback = { mp.get_script_name(), 'update_vs_finset_menu' },
     items = {
-        { title = "当前输入帧率: ", hint = "无数据" },
-        { title = "重置为视频默认" }
+        { title = '当前输入帧率: ', hint = '无数据' },
+        { title = '重置为视频默认' }
     }
 }
 local findef = false
 
 local function parse_command(str)
     local args = {}
-    for command in str:gmatch("([^;]+)%s*") do
+    for command in str:gmatch('([^;]+)%s*') do
         local arg = {}
-        for part in command:gmatch("%S+") do
+        for part in command:gmatch('%S+') do
             table.insert(arg, part)
         end
         table.insert(args, arg)
@@ -453,29 +453,29 @@ local function parse_command(str)
 end
 
 local function clear()
-    mp.set_property_native("user-data/vs", vs)
+    mp.set_property_native('user-data/vs', vs)
     for i = 1, #vs.state do
-        mp.commandv("vf", "remove", "@VS" .. i)
+        mp.commandv('vf', 'remove', '@VS' .. i)
     end
 end
 
 local function update(no_osd, fin)
-    mp.set_property_native("user-data/vs", vs)
+    mp.set_property_native('user-data/vs', vs)
     local tags = {}
     for _, mode in ipairs(vs.state) do table.insert(tags, vs.modes[mode].label) end
-    local str = table.concat(tags, " >> ")
-    if str == "" then str = "nil" end
-    if not no_osd then mp.osd_message("VS: " .. str) end
+    local str = table.concat(tags, ' >> ')
+    if str == '' then str = 'nil' end
+    if not no_osd then mp.osd_message('VS: ' .. str) end
     for _, item in ipairs(main_menu.items) do
-        if item.title:find("当前滤镜链: ") then
-            item.title = "当前滤镜链: " .. str
+        if item.title:find('当前滤镜链: ') then
+            item.title = '当前滤镜链: ' .. str
         end
     end
     for _, item in ipairs(main_menu.items) do
-        if item.title == "配置菜单" then
+        if item.title == '配置菜单' then
             item.muted = not vs.preset
-            item.actions[1].icon = vs.preset and "lock_open" or "lock"
-            item.actions[1].label = vs.preset and "禁用" or "启用"
+            item.actions[1].icon = vs.preset and 'lock_open' or 'lock'
+            item.actions[1].label = vs.preset and '禁用' or '启用'
         end
     end
     for _, mode in ipairs(settings_menu.items) do
@@ -484,9 +484,9 @@ local function update(no_osd, fin)
                 local acitve = true
                 local args = parse_command(item.value)
                 for _, arg in ipairs(args) do
-                    if arg[4]:find("trt") then
-                        local static = vs.modes[arg[2]].settings.static == "True"
-                        item.actions[1].icon = static and "toggle_on" or "toggle_off"
+                    if arg[4]:find('trt') then
+                        local static = vs.modes[arg[2]].settings.static == 'True'
+                        item.actions[1].icon = static and 'toggle_on' or 'toggle_off'
                     end
                     if vs.modes[arg[2]].settings[arg[3]] ~= arg[4] then
                         acitve = false
@@ -499,34 +499,34 @@ local function update(no_osd, fin)
     end
     for _, mode in pairs(vs.modes) do
         if not vs.preset and not fin then break end
-        local script_path = mp.command_native({ "expand-path", mode.path })
+        local script_path = mp.command_native({ 'expand-path', mode.path })
         local script = io.open(script_path, 'r')
         if script then
             local new_script_parts = {}
             for line in script:lines() do
                 if vs.preset then
                     for k, v in pairs(mode.settings) do
-                        if line:find(k .. "%s*=") then
-                            line = k .. " = " .. v
+                        if line:find(k .. '%s*=') then
+                            line = k .. ' = ' .. v
                             break
                         end
                     end
                 end
-                if fin and line:find("fin%s*=") then
-                    line = "fin = " .. fin
+                if fin and line:find('fin%s*=') then
+                    line = 'fin = ' .. fin
                 end
                 table.insert(new_script_parts, line)
             end
             script:close()
             local new_script = io.open(script_path, 'w')
             if new_script then
-                new_script:write(table.concat(new_script_parts, "\n"))
+                new_script:write(table.concat(new_script_parts, '\n'))
                 new_script:close()
             end
         end
     end
     for i, mode in ipairs(vs.state) do
-        mp.commandv("vf", "add", "@VS" .. i .. ":vapoursynth:file=" .. vs.modes[mode].path)
+        mp.commandv('vf', 'add', '@VS' .. i .. ':vapoursynth:file=' .. vs.modes[mode].path)
     end
 end
 
@@ -552,58 +552,58 @@ local function show_menu(menu)
         settings = settings_menu,
         finset = finset_menu
     }
-    if menu == "settings" and not vs.preset then return end
-    mp.commandv("script-message-to", "uosc", "open-menu", utils.format_json(menus[menu] or main_menu))
+    if menu == 'settings' and not vs.preset then return end
+    mp.commandv('script-message-to', 'uosc', 'open-menu', utils.format_json(menus[menu] or main_menu))
 end
 
 local function convert_vpy(file_path)
-    local abs_path = mp.command_native({ "expand-path", file_path })
-    local file = io.open(abs_path, "r")
-    if not file then return "" end
-    local content = file:read("*all")
+    local abs_path = mp.command_native({ 'expand-path', file_path })
+    local file = io.open(abs_path, 'r')
+    if not file then return '' end
+    local content = file:read('*all')
     file:close()
     local vars = {}
     local output_lines = {}
-    for line in content:gmatch("[^\r\n]+") do
-        if not line:find("clip%s*=") and not line:find("^%s*#") then
-            local name, value = line:match("([%w_]+)%s*=%s*([^%s\n#]+)")
+    for line in content:gmatch('[^\r\n]+') do
+        if not line:find('clip%s*=') and not line:find('^%s*#') then
+            local name, value = line:match('([%w_]+)%s*=%s*([^%s\n#]+)')
             if name then vars[name] = value end
         end
-        local method, args_raw = line:match("clip%s*=%s*k7sfunc%.([%w_]+)%((.*)%)")
+        local method, args_raw = line:match('clip%s*=%s*k7sfunc%.([%w_]+)%((.*)%)')
         if method and args_raw then
             local processed_args = {}
-            for arg in args_raw:gmatch("([^,]+)") do
-                arg = arg:gsub("^%s*(.-)%s*$", "%1")
-                if arg == "clip" then
-                    table.insert(processed_args, "clip")
-                elseif arg == "fin" then
-                    table.insert(processed_args, "clip.fps")
-                elseif arg == "nvof" then
-                    table.insert(processed_args, "False")
+            for arg in args_raw:gmatch('([^,]+)') do
+                arg = arg:gsub('^%s*(.-)%s*$', '%1')
+                if arg == 'clip' then
+                    table.insert(processed_args, 'clip')
+                elseif arg == 'fin' then
+                    table.insert(processed_args, 'clip.fps')
+                elseif arg == 'nvof' then
+                    table.insert(processed_args, 'False')
                 else
                     table.insert(processed_args, vars[arg] or arg)
                 end
             end
-            table.insert(output_lines, string.format("clip = k7sfunc.%s(%s)", method, table.concat(processed_args, ", ")))
+            table.insert(output_lines, string.format('clip = k7sfunc.%s(%s)', method, table.concat(processed_args, ', ')))
         end
     end
-    return table.concat(output_lines, "\n")
+    return table.concat(output_lines, '\n')
 end
 
 local function create_vpy(video_path)
     local targets = {}
     for _, mode in ipairs(vs.state) do table.insert(targets, vs.modes[mode].path) end
-    local temp_path = os.getenv("TEMP")
+    local temp_path = os.getenv('TEMP')
     local script_parts = {
-        "import k7sfunc",
-        "import vapoursynth",
-        string.format("clip = vapoursynth.core.lsmas.LWLibavSource(source=%q, cachedir=%q)", video_path, temp_path),
+        'import k7sfunc',
+        'import vapoursynth',
+        string.format('clip = vapoursynth.core.lsmas.LWLibavSource(source=%q, cachedir=%q)', video_path, temp_path),
     }
     for _, path in ipairs(targets) do table.insert(script_parts, convert_vpy(path)) end
-    table.insert(script_parts, "clip.set_output()")
-    local script = table.concat(script_parts, "\n")
-    local temp_file = temp_path .. "/vspipe_master.vpy"
-    local file = io.open(temp_file, "w")
+    table.insert(script_parts, 'clip.set_output()')
+    local script = table.concat(script_parts, '\n')
+    local temp_file = temp_path .. '/vspipe_master.vpy'
+    local file = io.open(temp_file, 'w')
     if file then
         file:write(script)
         file:close()
@@ -613,40 +613,40 @@ end
 
 local function encode_video()
     if not next(vs.state) then
-        mp.msg.warn("当前未添加任何VS滤镜")
+        mp.msg.warn('当前未添加任何VS滤镜')
         return
     end
-    local video_path = mp.get_property("path")
+    local video_path = mp.get_property('path')
     if not video_path then
-        mp.msg.warn("当前未加载视频")
+        mp.msg.warn('当前未加载视频')
         return
     end
     local vpy_path = create_vpy(video_path)
     if not vpy_path then
-        mp.msg.error("脚本生成失败")
+        mp.msg.error('脚本生成失败')
         return
     end
-    local dir, name = video_path:match("(.*)[/\\](.*)$")
-    if not dir then dir = "." end
-    local stem = name:match("(.+)%..+$") or name
-    local output_path = dir .. "/" .. stem .. "_processed.mkv"
-    local mpv_path = mp.command_native({ "expand-path", "~~/../" })
-    local vp = mp.get_property_native("video-params")
+    local dir, name = video_path:match('(.*)[/\\](.*)$')
+    if not dir then dir = '.' end
+    local stem = name:match('(.+)%..+$') or name
+    local output_path = dir .. '/' .. stem .. '_processed.mkv'
+    local mpv_path = mp.command_native({ 'expand-path', '~~/../' })
+    local vp = mp.get_property_native('video-params')
     local x265_params = string.format(
         '-x265-params "colorprim=%s:colormatrix=%s:transfer=%s:range=%s"',
-        vp.primaries == "bt.2020" and "bt2020" or "bt709",
-        vp.colormatrix == "bt.2020-ncl" and "bt2020nc" or "bt709",
-        vp.gamma == "pq" and "smpte2084" or vp.gamma == "hlg" and "arib-std-b67" or vp.gamma,
+        vp.primaries == 'bt.2020' and 'bt2020' or 'bt709',
+        vp.colormatrix == 'bt.2020-ncl' and 'bt2020nc' or 'bt709',
+        vp.gamma == 'pq' and 'smpte2084' or vp.gamma == 'hlg' and 'arib-std-b67' or vp.gamma,
         vp.colorlevels
     )
-    if vp["max-cll"] then
-        x265_params = x265_params:gsub('" ', string.format(
-            ':max-cll=%d,%d:hdr10=1" ',
-            vp["max-cll"],
-            vp["max-fall"]
+    if vp['max-cll'] then
+        x265_params = x265_params:gsub('"$', string.format(
+            ':max-cll=%d,%d:hdr10=1"',
+            vp['max-cll'],
+            vp['max-fall']
         ))
     end
-    local function esc(p) return string.gsub(p, "[%%^&]", { ["%%"] = "%%%%", ["^"] = "^^", ["&"] = "^&" }) end
+    local function esc(p) return string.gsub(p, '[%%^&]', { ['%%'] = '%%%%', ['^'] = '^^', ['&'] = '^&' }) end
     local cmd = string.format(
         'cmd /c start /b "process video" cmd /c "cd /d %q & vspipe -c y4m %q - -p | ffmpeg -y -hide_banner -loglevel error -thread_queue_size 2048 -i - -i %q -map 0:v -map 1:a? -map 1:s? -map 1:t? -c:v libx265 -crf 18 -pix_fmt p010 %s -c:a copy -c:s copy -c:t copy %q & pause"',
         esc(mpv_path), esc(vpy_path), esc(video_path), x265_params, esc(output_path)
@@ -664,26 +664,26 @@ local functions = {
 
 local function init(_, loaded)
     if not loaded then return end
-    VS_Checked = io.open(mp.command_native({ "expand-path", "~~/../VSPipe.exe" })) and true or false
-    mp.set_property_native("user-data/vs_checked", VS_Checked)
+    VS_Checked = io.open(mp.command_native({ 'expand-path', '~~/../VSPipe.exe' })) and true or false
+    mp.set_property_native('user-data/vs_checked', VS_Checked)
     if not VS_Checked then
-        mp.msg.warn("未检测到VapourSynth，VS相关功能已禁用")
+        mp.msg.warn('未检测到VapourSynth，VS相关功能已禁用')
         mp.unobserve_property(init)
         return
     end
-    local saved = mp.get_property_native("user-data/vs")
+    local saved = mp.get_property_native('user-data/vs')
     if saved then vs = saved end
-    update(true, "container_fps")
-    mp.register_event("file-loaded", function()
+    update(true, 'container_fps')
+    mp.register_event('file-loaded', function()
         for _, item in ipairs(finset_menu.items) do
-            if item.title == "当前输入帧率: " then
-                item.hint = findef and item.hint or mp.get_property("container-fps")
+            if item.title == '当前输入帧率: ' then
+                item.hint = findef and item.hint or mp.get_property('container-fps')
             end
         end
     end)
-    mp.register_script_message("update_vs_main_menu", function(json)
+    mp.register_script_message('update_vs_main_menu', function(json)
         local event = utils.parse_json(json)
-        if event.action == "toggle_preset" then
+        if event.action == 'toggle_preset' then
             vs.preset = not vs.preset
             update(true)
         elseif event.value then
@@ -692,16 +692,16 @@ local function init(_, loaded)
                 functions[arg[1]](arg[2])
             end
         end
-        mp.commandv("script-message-to", "uosc", "update-menu", utils.format_json(main_menu))
+        mp.commandv('script-message-to', 'uosc', 'update-menu', utils.format_json(main_menu))
     end)
-    mp.register_script_message("update_vs_settings_menu", function(json)
+    mp.register_script_message('update_vs_settings_menu', function(json)
         local event = utils.parse_json(json)
         if event.value then
             local args = parse_command(event.value)
-            if event.action == "toggle_static" then
+            if event.action == 'toggle_static' then
                 for _, arg in ipairs(args) do
-                    local value = vs.modes[arg[2]].settings.static == "True" and "False" or "True"
-                    set_mode(arg[2], "static", value, "over")
+                    local value = vs.modes[arg[2]].settings.static == 'True' and 'False' or 'True'
+                    set_mode(arg[2], 'static', value, 'over')
                 end
             else
                 for _, arg in ipairs(args) do
@@ -709,38 +709,34 @@ local function init(_, loaded)
                 end
             end
         end
-        mp.commandv("script-message-to", "uosc", "update-menu", utils.format_json(settings_menu))
+        mp.commandv('script-message-to', 'uosc', 'update-menu', utils.format_json(settings_menu))
     end)
-    mp.register_script_message("update_vs_finset_menu", function(json)
+    mp.register_script_message('update_vs_finset_menu', function(json)
         local event = utils.parse_json(json)
-        if event.type == "activate" and finset_menu.items[event.index].title == "重置为视频默认" then
+        if event.type == 'activate' and event.index == 2 then
             clear()
             findef = false
-            update(true, "container_fps")
-            for _, item in ipairs(finset_menu.items) do
-                if item.title == "当前输入帧率: " then item.hint = mp.get_property("container-fps") or "无数据" end
-            end
-            mp.commandv("script-message-to", "uosc", "update-menu", utils.format_json(finset_menu))
-        elseif event.type == "search" then
+            update(true, 'container_fps')
+            finset_menu.items[1].hint = mp.get_property('container-fps') or '无数据'
+            mp.commandv('script-message-to', 'uosc', 'update-menu', utils.format_json(finset_menu))
+        elseif event.type == 'search' then
             clear()
             findef = true
             update(true, event.query)
-            for _, item in ipairs(finset_menu.items) do
-                if item.title == "当前输入帧率: " then item.hint = event.query end
-            end
-            mp.commandv("script-message-to", "uosc", "open-menu", utils.format_json(finset_menu))
+            finset_menu.items[1].hint = event.query
+            mp.commandv('script-message-to', 'uosc', 'open-menu', utils.format_json(finset_menu))
         end
     end)
-    mp.register_script_message("toggle_vs_preset", function()
+    mp.register_script_message('toggle_vs_preset', function()
         vs.preset = not vs.preset
         update(true)
     end)
-    mp.register_script_message("clear_vs_mode", clear_mode)
-    mp.register_script_message("add_vs_mode", add_mode)
-    mp.register_script_message("set_vs_mode", set_mode)
-    mp.register_script_message("show_vs_main_menu", show_menu)
-    mp.register_script_message("vs_process_video", encode_video)
+    mp.register_script_message('clear_vs_mode', clear_mode)
+    mp.register_script_message('add_vs_mode', add_mode)
+    mp.register_script_message('set_vs_mode', set_mode)
+    mp.register_script_message('show_vs_main_menu', show_menu)
+    mp.register_script_message('vs_process_video', encode_video)
     mp.unobserve_property(init)
 end
 
-mp.observe_property("user-data/__state_loaded__", "bool", init)
+mp.observe_property('user-data/__state_loaded__', 'bool', init)

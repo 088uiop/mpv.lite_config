@@ -9,11 +9,11 @@ local p = setmetatable({}, {
 })
 
 local function compile_expr(expr)
-    if not expr or expr == "" then return nil end
-    local fn, err = load("return (" .. expr .. ")", "menu-expr", "t",
+    if not expr or expr == '' then return nil end
+    local fn, err = load('return (' .. expr .. ')', 'menu-expr', 't',
         setmetatable({ p = p }, { __index = _G }))
     if err then
-        mp.msg.error("Compile error: " .. err)
+        mp.msg.error('Compile error: ' .. err)
         return nil
     end
     return fn
@@ -34,7 +34,7 @@ local function parse_menu()
         if line == '' or line:match('^##') then goto continue end
         while #stack > 1 and indent <= stack[#stack].indent do table.remove(stack) end
         if line:match('^#%$') then
-            table.insert(stack[#stack].node, { type = "separator" })
+            table.insert(stack[#stack].node, { type = 'separator' })
             goto continue
         end
         local title = line:match('^#%s*(.-)%s*#!') or line:match('^#%s*(.-)%s*#@') or line:match('^#%s*(.-)%s*$')
@@ -42,7 +42,7 @@ local function parse_menu()
         local checked_expr = line:match('#@checked=([^#]+)')
         local available_expr = line:match('#@available=([^#]+)')
         local item = {
-            title = title or "Untitled",
+            title = title or 'Untitled',
             cmd = cmd and cmd:match('^%s*(.-)%s*$'),
             _check_fn = checked_expr and compile_expr(checked_expr),
             _avail_fn = available_expr and compile_expr(available_expr),
@@ -59,22 +59,22 @@ local function update_menu_data(items)
     local out = {}
     for i = 1, #items do
         local it = items[i]
-        if it.type == "separator" then
-            out[#out + 1] = { type = "separator" }
+        if it.type == 'separator' then
+            out[#out + 1] = { type = 'separator' }
         else
             local ni = { title = it.title, cmd = it.cmd }
             if #it.submenu > 0 then
-                ni.type = "submenu"
+                ni.type = 'submenu'
                 ni.submenu = update_menu_data(it.submenu)
             end
             local s = {}
             if it._check_fn then
                 local ok, res = pcall(it._check_fn)
-                if ok and res then s[#s + 1] = "checked" end
+                if ok and res then s[#s + 1] = 'checked' end
             end
             if it._avail_fn then
                 local ok, res = pcall(it._avail_fn)
-                if ok and not res then s[#s + 1] = "disabled" end
+                if ok and not res then s[#s + 1] = 'disabled' end
             end
             if #s > 0 then ni.state = s end
             out[#out + 1] = ni
@@ -96,4 +96,4 @@ local function init()
     end)
 end
 
-mp.observe_property("menu-data", nil, init)
+mp.observe_property('menu-data', nil, init)
