@@ -3,7 +3,7 @@ local utils = require 'mp.utils'
 
 local itm = {
     state = 'auto',
-    target_peak = '600',
+    target_peak = 'auto',
     reference_white = '203',
     shader_options = {
         luma_boost = '0.5',
