@@ -3,14 +3,14 @@ __version__ = "3.23.2"
 __all__ = [
     "Backend",
     "BackendV2",
-    "RealESRGAN",
-    "RealESRGANModel",
     "RIFE",
     "RIFEModel",
     "RIFEMerge",
     "DRBA",
     "DRBAModel",
     "DRBAMerge",
+    "RealESRGAN",
+    "RealESRGANModel",
     "inference",
     "flexible_inference",
 ]
@@ -137,131 +137,6 @@ backendT = typing.Union[
 
 
 fallback_backend: typing.Optional[backendT] = None
-
-
-@enum.unique
-class RealESRGANModel(enum.IntEnum):
-    # v3
-    animevideov3 = 2  # 4x
-    # contributed: janaiV3-hd(2x) https://github.com/the-database/mpv-upscale-2x_animejanai/releases/tag/3.0.0
-    animejanaiV3_HD_L1 = 5008
-    animejanaiV3_HD_L2 = 5009
-    animejanaiV3_HD_L3 = 5010
-    # contributed: Ani4K-v2 https://github.com/Sirosky/Upscale-Hub/releases/tag/Ani4K-v2
-    Ani4Kv2_G6i2_Compact = 7000
-    Ani4Kv2_G6i2_UltraCompact = 7001
-
-
-def RealESRGAN(
-    clip: vs.VideoNode,
-    tiles: typing.Optional[typing.Union[int, typing.Tuple[int, int]]] = None,
-    tilesize: typing.Optional[typing.Union[int, typing.Tuple[int, int]]] = None,
-    overlap: typing.Optional[typing.Union[int, typing.Tuple[int, int]]] = None,
-    model: RealESRGANModel = RealESRGANModel.animejanaiV3_HD_L1,
-    backend: backendT = Backend.ORT_DML(),
-    scale: typing.Optional[float] = None,
-    fp16: bool = False,
-) -> vs.VideoNode:
-
-    func_name = "vsmlrt.RealESRGAN"
-
-    if not isinstance(clip, vs.VideoNode):
-        raise TypeError(f'{func_name}: "clip" must be a clip!')
-
-    if clip.format.sample_type != vs.FLOAT or clip.format.bits_per_sample not in [
-        16,
-        32,
-    ]:
-        raise ValueError(
-            f"{func_name}: only constant format 16/32 bit float input supported"
-        )
-
-    if clip.format.color_family != vs.RGB:
-        raise ValueError(f'{func_name}: "clip" must be of RGB color family')
-
-    if not isinstance(model, int) or model not in RealESRGANModel.__members__.values():
-        raise ValueError(f'{func_name}: invalid "model"')
-
-    if overlap is None:
-        overlap_w = overlap_h = 8
-    elif isinstance(overlap, int):
-        overlap_w = overlap_h = overlap
-    else:
-        overlap_w, overlap_h = overlap
-
-    multiple = 1
-
-    (tile_w, tile_h), (overlap_w, overlap_h) = calc_tilesize(
-        tiles=tiles,
-        tilesize=tilesize,
-        width=clip.width,
-        height=clip.height,
-        multiple=multiple,
-        overlap_w=overlap_w,
-        overlap_h=overlap_h,
-    )
-
-    if tile_w % multiple != 0 or tile_h % multiple != 0:
-        raise ValueError(
-            f"{func_name}: tile size must be divisible by {multiple} ({tile_w}, {tile_h})"
-        )
-
-    backend = init_backend(backend=backend, trt_opt_shapes=(tile_w, tile_h))
-
-    if model == 2:
-        network_path = os.path.join(
-            models_path, "realesrgan", "realesr-animevideov3.onnx"
-        )
-    else:
-        network_path = os.path.join(
-            models_path,
-            "realesrgan",
-            f"{RealESRGANModel(model).name}.onnx".replace("_", "-"),
-        )
-
-    if fp16:
-        network_path, fp16_io = network_path[:-5] + "_fp16.onnx", True
-    else:
-        fp16_io = False
-    if isinstance(backend, Backend.ORT_DML):
-        backend.output_format = 1 if fp16_io else 0
-
-    clip_org = clip
-    clip = inference_with_fallback(
-        clips=[clip],
-        network_path=network_path,
-        overlap=(overlap_w, overlap_h),
-        tilesize=(tile_w, tile_h),
-        backend=backend,
-    )
-
-    if scale is not None:
-        scale_h = clip.width // clip_org.width
-        scale_v = clip.height // clip_org.height
-
-        assert scale_h == scale_v
-
-        if scale != scale_h:
-            rescale = scale / scale_h
-
-            if rescale > 1:
-                clip = core.resize.Lanczos(
-                    clip,
-                    int(clip_org.width * scale),
-                    int(clip_org.height * scale),
-                    filter_param_a=4,
-                )
-            else:
-                clip = fmtc_resample(
-                    clip,
-                    scale=rescale,
-                    kernel="lanczos",
-                    taps=4,
-                    fh=1 / rescale,
-                    fv=1 / rescale,
-                )
-
-    return clip
 
 
 @enum.unique
@@ -1018,6 +893,131 @@ def DRBA(
             )
         else:
             return res
+
+
+@enum.unique
+class RealESRGANModel(enum.IntEnum):
+    # v3
+    animevideov3 = 2  # 4x
+    # contributed: janaiV3-hd(2x) https://github.com/the-database/mpv-upscale-2x_animejanai/releases/tag/3.0.0
+    animejanaiV3_HD_L1 = 5008
+    animejanaiV3_HD_L2 = 5009
+    animejanaiV3_HD_L3 = 5010
+    # contributed: Ani4K-v2 https://github.com/Sirosky/Upscale-Hub/releases/tag/Ani4K-v2
+    Ani4Kv2_G6i2_Compact = 7000
+    Ani4Kv2_G6i2_UltraCompact = 7001
+
+
+def RealESRGAN(
+    clip: vs.VideoNode,
+    tiles: typing.Optional[typing.Union[int, typing.Tuple[int, int]]] = None,
+    tilesize: typing.Optional[typing.Union[int, typing.Tuple[int, int]]] = None,
+    overlap: typing.Optional[typing.Union[int, typing.Tuple[int, int]]] = None,
+    model: RealESRGANModel = RealESRGANModel.animejanaiV3_HD_L1,
+    backend: backendT = Backend.ORT_DML(),
+    scale: typing.Optional[float] = None,
+    fp16: bool = False,
+) -> vs.VideoNode:
+
+    func_name = "vsmlrt.RealESRGAN"
+
+    if not isinstance(clip, vs.VideoNode):
+        raise TypeError(f'{func_name}: "clip" must be a clip!')
+
+    if clip.format.sample_type != vs.FLOAT or clip.format.bits_per_sample not in [
+        16,
+        32,
+    ]:
+        raise ValueError(
+            f"{func_name}: only constant format 16/32 bit float input supported"
+        )
+
+    if clip.format.color_family != vs.RGB:
+        raise ValueError(f'{func_name}: "clip" must be of RGB color family')
+
+    if not isinstance(model, int) or model not in RealESRGANModel.__members__.values():
+        raise ValueError(f'{func_name}: invalid "model"')
+
+    if overlap is None:
+        overlap_w = overlap_h = 8
+    elif isinstance(overlap, int):
+        overlap_w = overlap_h = overlap
+    else:
+        overlap_w, overlap_h = overlap
+
+    multiple = 1
+
+    (tile_w, tile_h), (overlap_w, overlap_h) = calc_tilesize(
+        tiles=tiles,
+        tilesize=tilesize,
+        width=clip.width,
+        height=clip.height,
+        multiple=multiple,
+        overlap_w=overlap_w,
+        overlap_h=overlap_h,
+    )
+
+    if tile_w % multiple != 0 or tile_h % multiple != 0:
+        raise ValueError(
+            f"{func_name}: tile size must be divisible by {multiple} ({tile_w}, {tile_h})"
+        )
+
+    backend = init_backend(backend=backend, trt_opt_shapes=(tile_w, tile_h))
+
+    if model == 2:
+        network_path = os.path.join(
+            models_path, "realesrgan", "realesr-animevideov3.onnx"
+        )
+    else:
+        network_path = os.path.join(
+            models_path,
+            "realesrgan",
+            f"{RealESRGANModel(model).name}.onnx".replace("_", "-"),
+        )
+
+    if fp16:
+        network_path, fp16_io = network_path[:-5] + "_fp16.onnx", True
+    else:
+        fp16_io = False
+    if isinstance(backend, Backend.ORT_DML):
+        backend.output_format = 1 if fp16_io else 0
+
+    clip_org = clip
+    clip = inference_with_fallback(
+        clips=[clip],
+        network_path=network_path,
+        overlap=(overlap_w, overlap_h),
+        tilesize=(tile_w, tile_h),
+        backend=backend,
+    )
+
+    if scale is not None:
+        scale_h = clip.width // clip_org.width
+        scale_v = clip.height // clip_org.height
+
+        assert scale_h == scale_v
+
+        if scale != scale_h:
+            rescale = scale / scale_h
+
+            if rescale > 1:
+                clip = core.resize.Lanczos(
+                    clip,
+                    int(clip_org.width * scale),
+                    int(clip_org.height * scale),
+                    filter_param_a=4,
+                )
+            else:
+                clip = fmtc_resample(
+                    clip,
+                    scale=rescale,
+                    kernel="lanczos",
+                    taps=4,
+                    fh=1 / rescale,
+                    fv=1 / rescale,
+                )
+
+    return clip
 
 
 def get_engine_path(

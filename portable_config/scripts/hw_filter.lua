@@ -25,14 +25,13 @@ local hw_filters = {
     }
 }
 
-local vid = 1
 local gpu_vendor = nil
 local gpu_context = nil
 
 local function vsr_check()
-    local w = mp.get_property_native('width')
-    local h = mp.get_property_native('height')
-    if not w or not h then return end
+    local w = mp.get_property_number('width', 0)
+    local h = mp.get_property_number('height', 0)
+    if w * h == 0 then return end
     for id, filter in pairs(hw_filters) do
         if id:find('vsr') and states[id] then
             local enable = true
@@ -42,7 +41,7 @@ local function vsr_check()
                 enable = w >= 540 and h >= 320 and w <= 1920 and h <= 1080
             end
             if not enable then mp.msg.warn(filter.label .. ': 输入分辨率超出作用阈值') end
-            for _, v in ipairs(mp.get_property_native('vf')) do
+            for _, v in ipairs(mp.get_property_native('vf', {})) do
                 if v.label == filter.label and v.enabled ~= enable then
                     mp.commandv('vf', 'toggle', '@' .. filter.label)
                     return
@@ -52,12 +51,8 @@ local function vsr_check()
     end
 end
 
-local function gpu_context_check()
-    gpu_context = mp.get_property_native('current-gpu-context')
-    if not gpu_context then
-        mp.add_timeout(0.2, gpu_context_check)
-        return
-    end
+local function gpu_context_check(_, current_gpu_context)
+    gpu_context = current_gpu_context
     if gpu_context == 'd3d11' then return end
     for id, filter in pairs(hw_filters) do
         if states[id] then
@@ -66,7 +61,6 @@ local function gpu_context_check()
         end
     end
     mp.set_property_native('user-data/hw-filter', states)
-    mp.set_property_native('vid', vid)
 end
 
 local function toggle_hw_filter(id)
@@ -107,18 +101,12 @@ local function init(_, loaded)
         mp.enable_messages('no')
     end
     mp.enable_messages('v')
-    local saved = mp.get_property_native('user-data/hw-filter')
-    if saved then
-        states = saved
-    else
-        mp.set_property_native('user-data/hw-filter', states)
-    end
-    mp.observe_property('vid', 'native', function() vid = mp.get_property_native('vid') or vid end)
-    mp.observe_property('gpu-api', 'native', gpu_context_check)
+    states = mp.get_property_native('user-data/hw-filter', states)
+    mp.set_property_native('user-data/hw-filter', states)
+    mp.observe_property('current-gpu-context', 'string', gpu_context_check)
     mp.register_event('file-loaded', vsr_check)
     mp.register_event('log-message', detect_gpu)
     mp.register_script_message('toggle_hw_filter', toggle_hw_filter)
     mp.unobserve_property(init)
 end
-
 mp.observe_property('user-data/__state_loaded__', 'bool', init)

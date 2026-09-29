@@ -22,10 +22,10 @@ local function split_ass_dialogue(ass_path)
                 pos = next + 1
             end
             local prefix, text = line:sub(1, pos - 1), line:sub(pos)
-            table.insert(lines, { type = 'event', prefix = prefix })
-            table.insert(events, text)
+            lines[#lines + 1] = { type = 'event', prefix = prefix }
+            events[#events + 1] = text
         else
-            table.insert(lines, { type = 'other', text = line })
+            lines[#lines + 1] = { type = 'other', text = line }
         end
     end
     ass:close()
@@ -38,16 +38,16 @@ local function split_ass_dialogue(ass_path)
 end
 
 local function convert_sub()
-    original_sid = mp.get_property_number('sid')
+    original_sid = mp.get_property_number('sid', 1)
     if state == 0 or not original_sid then return end
     local track = nil
-    for _, t in ipairs(mp.get_property_native('track-list')) do
+    for _, t in ipairs(mp.get_property_native('track-list', {})) do
         if t.type == 'sub' and t.id == original_sid then
             track = t
             break
         end
     end
-    if not track or track.title == 'opencc' then return end
+    if not track then return end
     local codec = (track.codec or ''):find('ass') and 'ass' or 'srt'
     local convert_sub_path = temp_path .. '/convert-sub-' .. pid .. '.' .. codec
     local video_path = mp.get_property('path')
@@ -60,10 +60,9 @@ local function convert_sub()
         capture_stdout = true,
         capture_stderr = true
     }, function()
-        local config_path = mp.command_native({ 'expand-path', '~~/' })
-            .. '/../' .. (state == 1 and 't2s.json' or 's2t.json')
+        local config_path = mp.command_native({ 'expand-path', '~~/../' .. ({ 't2s.json', 's2t.json' })[state] })
         local max_sid = 0
-        for _, t in ipairs(mp.get_property_native('track-list')) do
+        for _, t in ipairs(mp.get_property_native('track-list', {})) do
             if t.type == 'sub' and t.id > max_sid then
                 max_sid = t.id
             end
@@ -105,21 +104,16 @@ local function toggle_convert_mode(mode)
     if converted_sid then
         mp.commandv('sub-remove', converted_sid)
         converted_sid = nil
-        mp.set_property('sid', original_sid)
+        mp.set_property_number('sid', original_sid)
     end
     convert_sub()
-    local status_msg = ({ [0] = '关闭', [1] = '繁转简', [2] = '简转繁' })[state]
-    mp.osd_message('字幕繁简转换: ' .. status_msg)
+    mp.osd_message('字幕繁简转换: ' .. ({ [0] = '关闭', [1] = '繁转简', [2] = '简转繁' })[state])
 end
 
 local function init(_, loaded)
     if not loaded then return end
-    local saved = mp.get_property_native('user-data/opencc-mode')
-    if saved then
-        state = saved
-    else
-        mp.set_property_native('user-data/opencc-mode', state)
-    end
+    state = mp.get_property_native('user-data/opencc-mode', state)
+    mp.set_property_native('user-data/opencc-mode', state)
     mp.register_event('file-loaded', function()
         original_sid = nil
         converted_sid = nil
@@ -132,5 +126,4 @@ local function init(_, loaded)
     mp.register_script_message('toggle_opencc_mode', toggle_convert_mode)
     mp.unobserve_property(init)
 end
-
 mp.observe_property('user-data/__state_loaded__', 'bool', init)

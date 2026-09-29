@@ -33,9 +33,9 @@ local vs = {
                 fmax = '30',
                 sc = 'True',
                 gpu = '0',
-                static = 'False',
                 precision = '16',
-            }
+            },
+            static = { ['"trt"'] = false, ['"trt_rtx"'] = false }
         },
         drba = {
             label = 'DRBA',
@@ -51,9 +51,9 @@ local vs = {
                 fmax = '30',
                 sc = 'False',
                 gpu = '0',
-                static = 'False',
                 precision = '16',
-            }
+            },
+            static = { ['"trt"'] = false }
         },
         realesrgan = {
             label = 'RealESRGAN',
@@ -68,9 +68,9 @@ local vs = {
                 wmax = '3840',
                 hmax = '2160',
                 gpu = '0',
-                static = 'False',
                 precision = '16',
-            }
+            },
+            static = { ['"trt"'] = false, ['"trt_rtx"'] = false }
         },
         uai = {
             label = 'UAI',
@@ -85,11 +85,15 @@ local vs = {
                 wmax = '3840',
                 hmax = '2160',
                 gpu = '0',
-                static = 'False',
                 precision = '16',
-            }
+            },
+            static = { ['"trt"'] = false, ['"trt_rtx"'] = false }
         }
     }
+}
+local finset = {
+    state = false,
+    value = 'container_fps'
 }
 local main_menu = {
     type = 'vs_main',
@@ -119,43 +123,43 @@ local settings_menu = {
                 {
                     title = '预降低分辨率',
                     items = {
-                        { title = '720p',  value = 'set svp wpre 1280; set svp hpre 720 over' },
-                        { title = '1080p', value = 'set svp wpre 1920; set svp hpre 1080 over' },
-                        { title = '1440p', value = 'set svp wpre 2560; set svp hpre 1440 over' },
-                        { title = '2160p', value = 'set svp wpre 3840; set svp hpre 2160 over' }
+                        { title = '720p',  value = 'svp: wpre 1280; set svp hpre 720 over' },
+                        { title = '1080p', value = 'svp: wpre 1920; set svp hpre 1080 over' },
+                        { title = '1440p', value = 'svp: wpre 2560; set svp hpre 1440 over' },
+                        { title = '2160p', value = 'svp: wpre 3840; set svp hpre 2160 over' }
                     }
                 },
                 {
                     title = '输出',
                     items = {
-                        { title = '2x',     value = 'set svp fnum 2; set svp fden 1; set svp abs False over' },
-                        { title = '4x',     value = 'set svp fnum 4; set svp fden 1; set svp abs False over' },
-                        { title = '8x',     value = 'set svp fnum 8; set svp fden 1; set svp abs False over' },
-                        { title = '60fps',  value = 'set svp fnum 60000; set svp fden 1001; set svp abs True over' },
-                        { title = '120fps', value = 'set svp fnum 120000; set svp fden 1001; set svp abs True over' },
-                        { title = '240fps', value = 'set svp fnum 240000; set svp fden 1001; set svp abs True over' }
+                        { title = '2x',     value = 'svp: fnum 2; set svp fden 1; set svp abs False over' },
+                        { title = '4x',     value = 'svp: fnum 4; set svp fden 1; set svp abs False over' },
+                        { title = '8x',     value = 'svp: fnum 8; set svp fden 1; set svp abs False over' },
+                        { title = '60fps',  value = 'svp: fnum 60000; set svp fden 1001; set svp abs True over' },
+                        { title = '120fps', value = 'svp: fnum 120000; set svp fden 1001; set svp abs True over' },
+                        { title = '240fps', value = 'svp: fnum 240000; set svp fden 1001; set svp abs True over' }
                     }
                 },
                 {
                     title = '限制输入',
                     items = {
-                        { title = '30fps',  value = 'set svp fmax 30 over' },
-                        { title = '60fps',  value = 'set svp fmax 60 over' },
-                        { title = '120fps', value = 'set svp fmax 120 over' }
+                        { title = '30fps',  value = 'svp: fmax 30 over' },
+                        { title = '60fps',  value = 'svp: fmax 60 over' },
+                        { title = '120fps', value = 'svp: fmax 120 over' }
                     }
                 },
                 {
                     title = 'NVOF',
                     items = {
-                        { title = '关', value = 'set svp nvof False over' },
-                        { title = '开', value = 'set svp nvof True over' }
+                        { title = '关', value = 'svp: nvof False over' },
+                        { title = '开', value = 'svp: nvof True over' }
                     }
                 },
                 {
                     title = '使用的 GPU',
                     items = {
-                        { title = 'GPU0', value = 'set svp gpu 0 over' },
-                        { title = 'GPU1', value = 'set svp gpu 1 over' }
+                        { title = 'GPU0', value = 'svp: gpu 0 over' },
+                        { title = 'GPU1', value = 'svp: gpu 1 over' }
                     }
                 }
             }
@@ -166,67 +170,67 @@ local settings_menu = {
                 {
                     title = '预降低分辨率',
                     items = {
-                        { title = '720p',  value = 'set rife wpre 1280; set rife hpre 720 over' },
-                        { title = '1080p', value = 'set rife wpre 1920; set rife hpre 1080 over' },
-                        { title = '1440p', value = 'set rife wpre 2560; set rife hpre 1440 over' },
-                        { title = '2160p', value = 'set rife wpre 3840; set rife hpre 2160 over' }
+                        { title = '720p',  value = 'rife: wpre 1280; hpre 720 over' },
+                        { title = '1080p', value = 'rife: wpre 1920; hpre 1080 over' },
+                        { title = '1440p', value = 'rife: wpre 2560; hpre 1440 over' },
+                        { title = '2160p', value = 'rife: wpre 3840; hpre 2160 over' }
                     }
                 },
                 {
                     title = '后端',
                     items = {
-                        { title = 'DML', value = 'set rife be "ort_dml" over' },
-                        { title = 'TRT', value = 'set rife be "trt" over', actions = { { name = 'toggle_static', icon = 'toggle_off', label = '静态引擎开关' } } },
-                        { title = 'TRT_RTX', value = 'set rife be "trt_rtx" over', actions = { { name = 'toggle_static', icon = 'toggle_off', label = '静态引擎开关' } } }
+                        { title = 'DML', value = 'rife: be "ort_dml" over' },
+                        { title = 'TRT', value = 'rife: be "trt" over', actions = { { name = 'toggle_static', icon = 'toggle_off', label = '静态引擎开关' } } },
+                        { title = 'TRT_RTX', value = 'rife: be "trt_rtx" over', actions = { { name = 'toggle_static', icon = 'toggle_off', label = '静态引擎开关' } } }
                     }
                 },
                 {
                     title = '模型',
                     items = {
-                        { title = 'v4.6',        value = 'set rife model 46 over' },
-                        { title = 'v4.25 lite',  value = 'set rife model 4251 over' },
-                        { title = 'v4.26',       value = 'set rife model 426 over' },
-                        { title = 'v4.26 heavy', value = 'set rife model 4262 over' }
+                        { title = 'v4.6',        value = 'rife: model 46 over' },
+                        { title = 'v4.25 lite',  value = 'rife: model 4251 over' },
+                        { title = 'v4.26',       value = 'rife: model 426 over' },
+                        { title = 'v4.26 heavy', value = 'rife: model 4262 over' }
                     }
                 },
                 {
                     title = '模型精度',
                     items = {
-                        { title = 'fp16', value = 'set rife precision 16 over' },
-                        { title = 'fp32', value = 'set rife precision 32 over' }
+                        { title = 'fp16', value = 'rife: precision 16 over' },
+                        { title = 'fp32', value = 'rife: precision 32 over' }
                     }
                 },
                 {
                     title = '输出',
                     items = {
-                        { title = '2x',     value = 'set rife fnum 2; set rife fden 1; set rife abs False over' },
-                        { title = '3x',     value = 'set rife fnum 3; set rife fden 1; set rife abs False over' },
-                        { title = '4x',     value = 'set rife fnum 4; set rife fden 1; set rife abs False over' },
-                        { title = '60fps',  value = 'set rife fnum 60000; set rife fden 1001; set rife abs True over' },
-                        { title = '90fps',  value = 'set rife fnum 90000; set rife fden 1001; set rife abs True over' },
-                        { title = '120fps', value = 'set rife fnum 120000; set rife fden 1001; set rife abs True over' }
+                        { title = '2x',     value = 'rife: fnum 2; fden 1; abs False over' },
+                        { title = '3x',     value = 'rife: fnum 3; fden 1; abs False over' },
+                        { title = '4x',     value = 'rife: fnum 4; fden 1; abs False over' },
+                        { title = '60fps',  value = 'rife: fnum 60000; fden 1001; abs True over' },
+                        { title = '90fps',  value = 'rife: fnum 90000; fden 1001; abs True over' },
+                        { title = '120fps', value = 'rife: fnum 120000; fden 1001; abs True over' }
                     }
                 },
                 {
                     title = '限制输入',
                     items = {
-                        { title = '30fps',  value = 'set rife fmax 30 over' },
-                        { title = '60fps',  value = 'set rife fmax 60 over' },
-                        { title = '120fps', value = 'set rife fmax 120 over' }
+                        { title = '30fps',  value = 'rife: fmax 30 over' },
+                        { title = '60fps',  value = 'rife: fmax 60 over' },
+                        { title = '120fps', value = 'rife: fmax 120 over' }
                     }
                 },
                 {
                     title = '场景切换检测',
                     items = {
-                        { title = '关', value = 'set rife sc False over' },
-                        { title = '开', value = 'set rife sc True over' }
+                        { title = '关', value = 'rife: sc False over' },
+                        { title = '开', value = 'rife: sc True over' }
                     }
                 },
                 {
                     title = '使用的 GPU',
                     items = {
-                        { title = 'GPU0', value = 'set rife gpu 0 over' },
-                        { title = 'GPU1', value = 'set rife gpu 1 over' }
+                        { title = 'GPU0', value = 'rife: gpu 0 over' },
+                        { title = 'GPU1', value = 'rife: gpu 1 over' }
                     }
                 }
             }
@@ -237,65 +241,65 @@ local settings_menu = {
                 {
                     title = '预降低分辨率',
                     items = {
-                        { title = '720p',  value = 'set drba wpre 1280; set drba hpre 720 over' },
-                        { title = '1080p', value = 'set drba wpre 1920; set drba hpre 1080 over' },
-                        { title = '1440p', value = 'set drba wpre 2560; set drba hpre 1440 over' },
-                        { title = '2160p', value = 'set drba wpre 3840; set drba hpre 2160 over' }
+                        { title = '720p',  value = 'drba: wpre 1280; hpre 720 over' },
+                        { title = '1080p', value = 'drba: wpre 1920; hpre 1080 over' },
+                        { title = '1440p', value = 'drba: wpre 2560; hpre 1440 over' },
+                        { title = '2160p', value = 'drba: wpre 3840; hpre 2160 over' }
                     }
                 },
                 {
                     title = '后端',
                     items = {
-                        { title = 'DML', value = 'set drba be "ort_dml" over' },
-                        { title = 'TRT', value = 'set drba be "trt" over', actions = { { name = 'toggle_static', icon = 'toggle_off', label = '静态引擎开关' } } },
-                        { title = 'TRT_RTX', value = 'set drba be "trt_rtx" over', actions = { { name = 'toggle_static', icon = 'toggle_off', label = '静态引擎开关' } } }
+                        { title = 'DML', value = 'drba: be "ort_dml" over' },
+                        { title = 'TRT', value = 'drba: be "trt" over', actions = { { name = 'toggle_static', icon = 'toggle_off', label = '静态引擎开关' } } },
+                        { title = 'TRT_RTX', value = 'drba: be "trt_rtx" over', hint = '此处仅静态引擎可用' }
                     }
                 },
                 {
                     title = '模型',
                     items = {
-                        { title = 'v1',      value = 'set drba model 1 over' },
-                        { title = 'v2 lite', value = 'set drba model 2 over' }
+                        { title = 'v1',      value = 'drba: model 1 over' },
+                        { title = 'v2 lite', value = 'drba: model 2 over' }
                     }
                 },
                 {
                     title = '模型精度',
                     items = {
-                        { title = 'fp16', value = 'set drba precision 16 over' },
-                        { title = 'fp32', value = 'set drba precision 32 over' }
+                        { title = 'fp16', value = 'drba: precision 16 over' },
+                        { title = 'fp32', value = 'drba: precision 32 over' }
                     }
                 },
                 {
                     title = '输出',
                     items = {
-                        { title = '2x',     value = 'set drba fnum 2; set drba fden 1; set drba abs False over' },
-                        { title = '3x',     value = 'set drba fnum 3; set drba fden 1; set drba abs False over' },
-                        { title = '4x',     value = 'set drba fnum 4; set drba fden 1; set drba abs False over' },
-                        { title = '60fps',  value = 'set drba fnum 60000; set drba fden 1001; set drba abs True over' },
-                        { title = '90fps',  value = 'set drba fnum 90000; set drba fden 1001; set drba abs True over' },
-                        { title = '120fps', value = 'set drba fnum 120000; set drba fden 1001; set drba abs True over' }
+                        { title = '2x',     value = 'drba: fnum 2; fden 1; abs False over' },
+                        { title = '3x',     value = 'drba: fnum 3; fden 1; abs False over' },
+                        { title = '4x',     value = 'drba: fnum 4; fden 1; abs False over' },
+                        { title = '60fps',  value = 'drba: fnum 60000; fden 1001; abs True over' },
+                        { title = '90fps',  value = 'drba: fnum 90000; fden 1001; abs True over' },
+                        { title = '120fps', value = 'drba: fnum 120000; fden 1001; abs True over' }
                     }
                 },
                 {
                     title = '限制输入',
                     items = {
-                        { title = '30fps',  value = 'set drba fmax 30 over' },
-                        { title = '60fps',  value = 'set drba fmax 60 over' },
-                        { title = '120fps', value = 'set drba fmax 120 over' }
+                        { title = '30fps',  value = 'drba: fmax 30 over' },
+                        { title = '60fps',  value = 'drba: fmax 60 over' },
+                        { title = '120fps', value = 'drba: fmax 120 over' }
                     }
                 },
                 {
                     title = '场景切换检测',
                     items = {
-                        { title = '关', value = 'set drba sc False over' },
-                        { title = '开', value = 'set drba sc True over' }
+                        { title = '关', value = 'drba: sc False over' },
+                        { title = '开', value = 'drba: sc True over' }
                     }
                 },
                 {
                     title = '使用的 GPU',
                     items = {
-                        { title = 'GPU0', value = 'set drba gpu 0 over' },
-                        { title = 'GPU1', value = 'set drba gpu 1 over' }
+                        { title = 'GPU0', value = 'drba: gpu 0 over' },
+                        { title = 'GPU1', value = 'drba: gpu 1 over' }
                     }
                 }
             }
@@ -306,59 +310,59 @@ local settings_menu = {
                 {
                     title = '预降低分辨率',
                     items = {
-                        { title = '720p',  value = 'set realesrgan wpre 1280; set realesrgan hpre 720 over' },
-                        { title = '1080p', value = 'set realesrgan wpre 1920; set realesrgan hpre 1080 over' },
-                        { title = '1440p', value = 'set realesrgan wpre 2560; set realesrgan hpre 1440 over' },
-                        { title = '2160p', value = 'set realesrgan wpre 3840; set realesrgan hpre 2160 over' }
+                        { title = '720p',  value = 'realesrgan: wpre 1280; hpre 720 over' },
+                        { title = '1080p', value = 'realesrgan: wpre 1920; hpre 1080 over' },
+                        { title = '1440p', value = 'realesrgan: wpre 2560; hpre 1440 over' },
+                        { title = '2160p', value = 'realesrgan: wpre 3840; hpre 2160 over' }
                     }
                 },
                 {
                     title = '后端',
                     items = {
-                        { title = 'DML', value = 'set realesrgan be "ort_dml" over' },
-                        { title = 'TRT', value = 'set realesrgan be "trt" over', actions = { { name = 'toggle_static', icon = 'toggle_off', label = '静态引擎开关' } } },
-                        { title = 'TRT_RTX', value = 'set realesrgan be "trt_rtx" over', actions = { { name = 'toggle_static', icon = 'toggle_off', label = '静态引擎开关' } } }
+                        { title = 'DML', value = 'realesrgan: be "ort_dml" over' },
+                        { title = 'TRT', value = 'realesrgan: be "trt" over', actions = { { name = 'toggle_static', icon = 'toggle_off', label = '静态引擎开关' } } },
+                        { title = 'TRT_RTX', value = 'realesrgan: be "trt_rtx" over', actions = { { name = 'toggle_static', icon = 'toggle_off', label = '静态引擎开关' } } }
                     }
                 },
                 {
                     title = '模型',
                     items = {
-                        { title = 'animevideov3',         value = 'set realesrgan model 2 over' },
-                        { title = 'janaiV3_HD_L1',        value = 'set realesrgan model 5008 over' },
-                        { title = 'janaiV3_HD_L2',        value = 'set realesrgan model 5009 over' },
-                        { title = 'janaiV3_HD_L3',        value = 'set realesrgan model 5010 over' },
-                        { title = 'Ani4Kv2_Compact',      value = 'set realesrgan model 7000 over' },
-                        { title = 'Ani4Kv2_UltraCompact', value = 'set realesrgan model 7001 over' }
+                        { title = 'animevideov3',         value = 'realesrgan: model 2 over' },
+                        { title = 'janaiV3_HD_L1',        value = 'realesrgan: model 5008 over' },
+                        { title = 'janaiV3_HD_L2',        value = 'realesrgan: model 5009 over' },
+                        { title = 'janaiV3_HD_L3',        value = 'realesrgan: model 5010 over' },
+                        { title = 'Ani4Kv2_Compact',      value = 'realesrgan: model 7000 over' },
+                        { title = 'Ani4Kv2_UltraCompact', value = 'realesrgan: model 7001 over' }
                     }
                 },
                 {
                     title = '模型精度',
                     items = {
-                        { title = 'fp16', value = 'set realesrgan precision 16 over' },
-                        { title = 'fp32', value = 'set realesrgan precision 32 over' }
+                        { title = 'fp16', value = 'realesrgan: precision 16 over' },
+                        { title = 'fp32', value = 'realesrgan: precision 32 over' }
                     }
                 },
                 {
                     title = '限制输入',
                     items = {
-                        { title = '720p',  value = 'set realesrgan wlim 1280; set realesrgan hlim 720 over' },
-                        { title = '1080p', value = 'set realesrgan wlim 1920; set realesrgan hlim 1080 over' },
-                        { title = '2160p', value = 'set realesrgan wlim 3840; set realesrgan hlim 2160 over' }
+                        { title = '720p',  value = 'realesrgan: wlim 1280; hlim 720 over' },
+                        { title = '1080p', value = 'realesrgan: wlim 1920; hlim 1080 over' },
+                        { title = '2160p', value = 'realesrgan: wlim 3840; hlim 2160 over' }
                     }
                 },
                 {
                     title = '限制输出',
                     items = {
-                        { title = '1440p', value = 'set realesrgan wmax 2560; set realesrgan hmax 1440 over' },
-                        { title = '2160p', value = 'set realesrgan wmax 3840; set realesrgan hmax 2160 over' },
-                        { title = '4320p', value = 'set realesrgan wmax 7680; set realesrgan hmax 4320 over' }
+                        { title = '1440p', value = 'realesrgan: wmax 2560; hmax 1440 over' },
+                        { title = '2160p', value = 'realesrgan: wmax 3840; hmax 2160 over' },
+                        { title = '4320p', value = 'realesrgan: wmax 7680; hmax 4320 over' }
                     }
                 },
                 {
                     title = '使用的 GPU',
                     items = {
-                        { title = 'GPU0', value = 'set realesrgan gpu 0 over' },
-                        { title = 'GPU1', value = 'set realesrgan gpu 1 over' }
+                        { title = 'GPU0', value = 'realesrgan: gpu 0 over' },
+                        { title = 'GPU1', value = 'realesrgan: gpu 1 over' }
                     }
                 }
             }
@@ -369,57 +373,57 @@ local settings_menu = {
                 {
                     title = '预降低分辨率',
                     items = {
-                        { title = '720p',  value = 'set uai wpre 1280; set uai hpre 720 over' },
-                        { title = '1080p', value = 'set uai wpre 1920; set uai hpre 1080 over' },
-                        { title = '1440p', value = 'set uai wpre 2560; set uai hpre 1440 over' },
-                        { title = '2160p', value = 'set uai wpre 3840; set uai hpre 2160 over' }
+                        { title = '720p',  value = 'uai: wpre 1280; hpre 720 over' },
+                        { title = '1080p', value = 'uai: wpre 1920; hpre 1080 over' },
+                        { title = '1440p', value = 'uai: wpre 2560; hpre 1440 over' },
+                        { title = '2160p', value = 'uai: wpre 3840; hpre 2160 over' }
                     }
                 },
                 {
                     title = '后端',
                     items = {
-                        { title = 'DML', value = 'set uai be "ort_dml" over' },
-                        { title = 'TRT', value = 'set uai be "trt" over', actions = { { name = 'toggle_static', icon = 'toggle_off', label = '静态引擎开关' } } },
-                        { title = 'TRT_RTX', value = 'set uai be "trt_rtx" over', actions = { { name = 'toggle_static', icon = 'toggle_off', label = '静态引擎开关' } } }
+                        { title = 'DML', value = 'uai: be "ort_dml" over' },
+                        { title = 'TRT', value = 'uai: be "trt" over', actions = { { name = 'toggle_static', icon = 'toggle_off', label = '静态引擎开关' } } },
+                        { title = 'TRT_RTX', value = 'uai: be "trt_rtx" over', actions = { { name = 'toggle_static', icon = 'toggle_off', label = '静态引擎开关' } } }
                     }
                 },
                 {
                     title = '模型',
                     items = {
-                        { title = 'HFA2kCompact_x2',        value = 'set uai model "HFA2kCompact_x2" over' },
-                        { title = 'HFA2kSpan_x2',           value = 'set uai model "HFA2kSpan_x2" over' },
-                        { title = 'ClearRealityV1_x4',      value = 'set uai model "ClearRealityV1_x4" over' },
-                        { title = 'ClearRealityV1_Soft_x4', value = 'set uai model "ClearRealityV1_Soft_x4" over' }
+                        { title = 'HFA2kCompact_x2',        value = 'uai: model "HFA2kCompact_x2" over' },
+                        { title = 'HFA2kSpan_x2',           value = 'uai: model "HFA2kSpan_x2" over' },
+                        { title = 'ClearRealityV1_x4',      value = 'uai: model "ClearRealityV1_x4" over' },
+                        { title = 'ClearRealityV1_Soft_x4', value = 'uai: model "ClearRealityV1_Soft_x4" over' }
                     }
                 },
                 {
                     title = '模型精度',
                     items = {
-                        { title = 'fp16', value = 'set uai precision 16 over' },
-                        { title = 'fp32', value = 'set uai precision 32 over' }
+                        { title = 'fp16', value = 'uai: precision 16 over' },
+                        { title = 'fp32', value = 'uai: precision 32 over' }
                     }
                 },
                 {
                     title = '限制输入',
                     items = {
-                        { title = '720p',  value = 'set uai wlim 1280; set uai hlim 720 over' },
-                        { title = '1080p', value = 'set uai wlim 1920; set uai hlim 1080 over' },
-                        { title = '2160p', value = 'set uai wlim 3840; set uai hlim 2160 over' }
+                        { title = '720p',  value = 'uai: wlim 1280; hlim 720 over' },
+                        { title = '1080p', value = 'uai: wlim 1920; hlim 1080 over' },
+                        { title = '2160p', value = 'uai: wlim 3840; hlim 2160 over' }
                     }
                 },
                 {
                     title = '限制输出',
                     items = {
-                        { title = '1440p', value = 'set uai wmax 2560; set uai hmax 1440 over' },
-                        { title = '2160p', value = 'set uai wmax 3840; set uai hmax 2160 over' },
-                        { title = '4320p', value = 'set uai wmax 7680; set uai hmax 4320 over' }
+                        { title = '1440p', value = 'uai: wmax 2560; hmax 1440 over' },
+                        { title = '2160p', value = 'uai: wmax 3840; hmax 2160 over' },
+                        { title = '4320p', value = 'uai: wmax 7680; hmax 4320 over' }
                     }
                 },
                 {
                     title = '使用的 GPU',
                     items = {
-                        { title = 'GPU0', value = 'set uai gpu 0 over' },
-                        { title = 'GPU1', value = 'set uai gpu 1 over' }
+                        { title = 'GPU0', value = 'uai: gpu 0 over' },
+                        { title = 'GPU1', value = 'uai: gpu 1 over' }
                     }
                 }
             }
@@ -438,62 +442,50 @@ local finset_menu = {
         { title = '重置为视频默认' }
     }
 }
-local findef = false
 
 local function parse_command(str)
-    local args = {}
-    for command in str:gmatch('([^;]+)%s*') do
-        local arg = {}
-        for part in command:gmatch('%S+') do
-            table.insert(arg, part)
+    if not str then return {} end
+    local mode, cmds = str:match("^%s*([^:]-)%s*:%s*(.*)$")
+    local commands = {}
+    for cmd in cmds:gmatch("[^;]+") do
+        local args = {}
+        for arg in cmd:gmatch("%S+") do
+            args[#args + 1] = arg
         end
-        table.insert(args, arg)
+        commands[#commands + 1] = args
     end
-    return args
-end
-
-local function clear()
-    mp.set_property_native('user-data/vs', vs)
-    for i = 1, #vs.state do
-        mp.commandv('vf', 'remove', '@VS' .. i)
-    end
+    return { mode = mode, commands = commands }
 end
 
 local function update(no_osd, fin)
     mp.set_property_native('user-data/vs', vs)
     local tags = {}
-    for _, mode in ipairs(vs.state) do table.insert(tags, vs.modes[mode].label) end
+    for _, mode in ipairs(vs.state) do tags[#tags + 1] = vs.modes[mode].label end
     local str = table.concat(tags, ' >> ')
     if str == '' then str = 'nil' end
     if not no_osd then mp.osd_message('VS: ' .. str) end
-    for _, item in ipairs(main_menu.items) do
-        if item.title:find('当前滤镜链: ') then
-            item.title = '当前滤镜链: ' .. str
-        end
-    end
-    for _, item in ipairs(main_menu.items) do
-        if item.title == '配置菜单' then
-            item.muted = not vs.preset
-            item.actions[1].icon = vs.preset and 'lock_open' or 'lock'
-            item.actions[1].label = vs.preset and '禁用' or '启用'
-        end
-    end
-    for _, mode in ipairs(settings_menu.items) do
-        for _, option in ipairs(mode.items) do
-            for _, item in ipairs(option.items) do
-                local acitve = true
-                local args = parse_command(item.value)
-                for _, arg in ipairs(args) do
-                    if arg[4]:find('trt') then
-                        local static = vs.modes[arg[2]].settings.static == 'True'
-                        item.actions[1].icon = static and 'toggle_on' or 'toggle_off'
-                    end
-                    if vs.modes[arg[2]].settings[arg[3]] ~= arg[4] then
-                        acitve = false
+    main_menu.items[1].title = '当前滤镜链: ' .. str
+    local preset_menu = main_menu.items[#main_menu.items]
+    preset_menu.muted = not vs.preset
+    preset_menu.actions[1].icon = vs.preset and 'lock_open' or 'lock'
+    preset_menu.actions[1].label = vs.preset and '禁用' or '启用'
+    local mis = { 'svp', 'rife', 'drba', 'realesrgan', 'uai' }
+    local bis = { '"dml"', '"trt"', '"trt_rtx"' }
+    for i, setting in ipairs(settings_menu.items) do
+        for _, option in ipairs(setting.items) do
+            for j, item in ipairs(option.items) do
+                local active = true
+                local cmd = parse_command(item.value)
+                for _, args in ipairs(cmd.commands) do
+                    if vs.modes[cmd.mode].settings[args[1]] ~= args[2] then
+                        active = false
                         break
                     end
                 end
-                item.active = acitve
+                item.active = active
+                if item.actions then
+                    item.actions[1].icon = vs.modes[mis[i]].static[bis[j]] and 'toggle_on' or 'toggle_off'
+                end
             end
         end
     end
@@ -505,17 +497,21 @@ local function update(no_osd, fin)
             local new_script_parts = {}
             for line in script:lines() do
                 if vs.preset then
-                    for k, v in pairs(mode.settings) do
-                        if line:find(k .. '%s*=') then
-                            line = k .. ' = ' .. v
-                            break
+                    if line:find('static%s*=') then
+                        line = 'static = ' .. (mode.static[mode.settings.be] and 'True' or 'False')
+                    else
+                        for k, v in pairs(mode.settings) do
+                            if line:find(k .. '%s*=') then
+                                line = k .. ' = ' .. v
+                                break
+                            end
                         end
                     end
                 end
                 if fin and line:find('fin%s*=') then
                     line = 'fin = ' .. fin
                 end
-                table.insert(new_script_parts, line)
+                new_script_parts[#new_script_parts + 1] = line
             end
             script:close()
             local new_script = io.open(script_path, 'w')
@@ -531,29 +527,26 @@ local function update(no_osd, fin)
 end
 
 local function clear_mode()
-    clear()
+    for i = 1, #vs.state do mp.commandv('vf', 'remove', '@VS' .. i) end
     vs.state = {}
     update()
 end
 
 local function add_mode(mode)
-    table.insert(vs.state, mode)
+    vs.state[#vs.state + 1] = mode
     update()
 end
 
 local function set_mode(mode, key, value, over)
-    clear()
+    for i = 1, #vs.state do mp.commandv('vf', 'remove', '@VS' .. i) end
     vs.modes[mode].settings[key] = value
-    if over then update(true) end
+    if over == 'over' then update(true) end
 end
 
 local function show_menu(menu)
-    local menus = {
-        settings = settings_menu,
-        finset = finset_menu
-    }
     if menu == 'settings' and not vs.preset then return end
-    mp.commandv('script-message-to', 'uosc', 'open-menu', utils.format_json(menus[menu] or main_menu))
+    local menus = { main = main_menu, settings = settings_menu, finset = finset_menu }
+    mp.commandv('script-message-to', 'uosc', 'open-menu', utils.format_json(menus[menu]))
 end
 
 local function convert_vpy(file_path)
@@ -574,17 +567,11 @@ local function convert_vpy(file_path)
             local processed_args = {}
             for arg in args_raw:gmatch('([^,]+)') do
                 arg = arg:gsub('^%s*(.-)%s*$', '%1')
-                if arg == 'clip' then
-                    table.insert(processed_args, 'clip')
-                elseif arg == 'fin' then
-                    table.insert(processed_args, 'clip.fps')
-                elseif arg == 'nvof' then
-                    table.insert(processed_args, 'False')
-                else
-                    table.insert(processed_args, vars[arg] or arg)
-                end
+                local arg_map = { clip = 'clip', fin = 'clip.fps', nvof = 'False' }
+                processed_args[#processed_args + 1] = arg_map[arg] or vars[arg] or arg
             end
-            table.insert(output_lines, string.format('clip = k7sfunc.%s(%s)', method, table.concat(processed_args, ', ')))
+            local args = table.concat(processed_args, ', ')
+            output_lines[#output_lines + 1] = string.format('clip = k7sfunc.%s(%s)', method, args)
         end
     end
     return table.concat(output_lines, '\n')
@@ -592,15 +579,15 @@ end
 
 local function create_vpy(video_path)
     local targets = {}
-    for _, mode in ipairs(vs.state) do table.insert(targets, vs.modes[mode].path) end
+    for _, mode in ipairs(vs.state) do targets[#targets + 1] = vs.modes[mode].path end
     local temp_path = os.getenv('TEMP')
     local script_parts = {
         'import k7sfunc',
         'import vapoursynth',
         string.format('clip = vapoursynth.core.lsmas.LWLibavSource(source=%q, cachedir=%q)', video_path, temp_path),
     }
-    for _, path in ipairs(targets) do table.insert(script_parts, convert_vpy(path)) end
-    table.insert(script_parts, 'clip.set_output()')
+    for _, path in ipairs(targets) do script_parts[#script_parts + 1] = convert_vpy(path) end
+    script_parts[#script_parts + 1] = 'clip.set_output()'
     local script = table.concat(script_parts, '\n')
     local temp_file = temp_path .. '/vspipe_master.vpy'
     local file = io.open(temp_file, 'w')
@@ -611,7 +598,7 @@ local function create_vpy(video_path)
     end
 end
 
-local function encode_video()
+local function process_video()
     if not next(vs.state) then
         mp.msg.warn('当前未添加任何VS滤镜')
         return
@@ -631,13 +618,13 @@ local function encode_video()
     local stem = name:match('(.+)%..+$') or name
     local output_path = dir .. '/' .. stem .. '_processed.mkv'
     local mpv_path = mp.command_native({ 'expand-path', '~~/../' })
-    local vp = mp.get_property_native('video-params')
+    local vp = mp.get_property_native('video-params', {})
     local x265_params = string.format(
         '-x265-params "colorprim=%s:colormatrix=%s:transfer=%s:range=%s"',
         vp.primaries == 'bt.2020' and 'bt2020' or 'bt709',
         vp.colormatrix == 'bt.2020-ncl' and 'bt2020nc' or 'bt709',
-        vp.gamma == 'pq' and 'smpte2084' or vp.gamma == 'hlg' and 'arib-std-b67' or vp.gamma,
-        vp.colorlevels
+        vp.gamma == 'pq' and 'smpte2084' or vp.gamma == 'hlg' and 'arib-std-b67' or 'bt709',
+        vp.colorlevels or 'limited'
     )
     if vp['max-cll'] then
         x265_params = x265_params:gsub('"$', string.format(
@@ -648,95 +635,82 @@ local function encode_video()
     end
     local function esc(p) return string.gsub(p, '[%%^&]', { ['%%'] = '%%%%', ['^'] = '^^', ['&'] = '^&' }) end
     local cmd = string.format(
-        'cmd /c start /b "process video" cmd /c "cd /d %q & vspipe -c y4m %q - -p | ffmpeg -y -hide_banner -loglevel error -thread_queue_size 2048 -i - -i %q -map 0:v -map 1:a? -map 1:s? -map 1:t? -c:v libx265 -crf 18 -pix_fmt p010 %s -c:a copy -c:s copy -c:t copy %q & pause"',
+        'cmd /c start /b "process video" cmd /c "cd /d %q & vspipe -c y4m %q - -p | ffmpeg -y -hide_banner -loglevel error -i - -i %q -map 0:v -map 1:a? -map 1:s? -map 1:t? -c:v libx265 -crf 18 -pix_fmt p010 %s -c:a copy -c:s copy -c:t copy %q & pause"',
         esc(mpv_path), esc(vpy_path), esc(video_path), x265_params, esc(output_path)
     )
     os.execute(cmd)
 end
 
-local functions = {
-    clear = clear_mode,
-    add = add_mode,
-    set = set_mode,
-    show = show_menu,
-    process = encode_video
-}
+local function toggle_preset()
+    vs.preset = not vs.preset
+    update(true)
+end
+
+local function toggle_static(mode, be)
+    vs.modes[mode].static[be] = not vs.modes[mode].static[be]
+    update(true)
+end
 
 local function init(_, loaded)
     if not loaded then return end
-    VS_Checked = io.open(mp.command_native({ 'expand-path', '~~/../VSPipe.exe' })) and true or false
-    mp.set_property_native('user-data/vs_checked', VS_Checked)
-    if not VS_Checked then
+    local vspipe = io.open(mp.command_native({ 'expand-path', '~~/../VSPipe.exe' }))
+    local vs_checked = vspipe ~= nil
+    if vspipe then vspipe:close() end
+    mp.set_property_bool('user-data/vs_checked', vs_checked)
+    if not vs_checked then
         mp.msg.warn('未检测到VapourSynth，VS相关功能已禁用')
         mp.unobserve_property(init)
         return
     end
-    local saved = mp.get_property_native('user-data/vs')
-    if saved then vs = saved end
+    vs = mp.get_property_native('user-data/vs', vs)
     update(true, 'container_fps')
     mp.register_event('file-loaded', function()
-        for _, item in ipairs(finset_menu.items) do
-            if item.title == '当前输入帧率: ' then
-                item.hint = findef and item.hint or mp.get_property('container-fps')
-            end
-        end
+        finset_menu.items[1].hint = finset.state and finset.value or mp.get_property('container-fps', '无数据')
+    end)
+    mp.register_event('end-file', function()
+        finset_menu.items[1].hint = '无数据'
     end)
     mp.register_script_message('update_vs_main_menu', function(json)
         local event = utils.parse_json(json)
         if event.action == 'toggle_preset' then
-            vs.preset = not vs.preset
-            update(true)
+            toggle_preset()
         elseif event.value then
-            local args = parse_command(event.value)
-            for _, arg in ipairs(args) do
-                functions[arg[1]](arg[2])
-            end
+            local functions = { clear = clear_mode, add = add_mode, show = show_menu, process = process_video }
+            local arg1, arg2 = event.value:match("^(%S+)%s*(.*)$")
+            functions[arg1](arg2)
         end
         mp.commandv('script-message-to', 'uosc', 'update-menu', utils.format_json(main_menu))
     end)
     mp.register_script_message('update_vs_settings_menu', function(json)
         local event = utils.parse_json(json)
-        if event.value then
-            local args = parse_command(event.value)
-            if event.action == 'toggle_static' then
-                for _, arg in ipairs(args) do
-                    local value = vs.modes[arg[2]].settings.static == 'True' and 'False' or 'True'
-                    set_mode(arg[2], 'static', value, 'over')
-                end
-            else
-                for _, arg in ipairs(args) do
-                    functions[arg[1]](arg[2], arg[3], arg[4], arg[5])
-                end
-            end
+        local cmd = parse_command(event.value)
+        if event.action == 'toggle_static' then
+            toggle_static(cmd.mode, cmd.commands[1][2])
+        elseif event.value then
+            for _, args in ipairs(cmd.commands) do set_mode(cmd.mode, args[1], args[2], args[3]) end
         end
         mp.commandv('script-message-to', 'uosc', 'update-menu', utils.format_json(settings_menu))
     end)
     mp.register_script_message('update_vs_finset_menu', function(json)
         local event = utils.parse_json(json)
-        if event.type == 'activate' and event.index == 2 then
-            clear()
-            findef = false
-            update(true, 'container_fps')
-            finset_menu.items[1].hint = mp.get_property('container-fps') or '无数据'
-            mp.commandv('script-message-to', 'uosc', 'update-menu', utils.format_json(finset_menu))
-        elseif event.type == 'search' then
-            clear()
-            findef = true
-            update(true, event.query)
-            finset_menu.items[1].hint = event.query
-            mp.commandv('script-message-to', 'uosc', 'open-menu', utils.format_json(finset_menu))
+        local def = event.type == 'search'
+        local redef = event.type == 'activate' and event.index == 2
+        if def or redef then
+            for i = 1, #vs.state do mp.commandv('vf', 'remove', '@VS' .. i) end
+            finset.state = def
+            finset.value = def and event.query or 'container_fps'
+            update(true, finset.value)
+            finset_menu.items[1].hint = def and finset.value or mp.get_property('container-fps', '无数据')
+            mp.commandv('script-message-to', 'uosc', def and 'open-menu' or 'update-menu', utils.format_json(finset_menu))
         end
-    end)
-    mp.register_script_message('toggle_vs_preset', function()
-        vs.preset = not vs.preset
-        update(true)
     end)
     mp.register_script_message('clear_vs_mode', clear_mode)
     mp.register_script_message('add_vs_mode', add_mode)
     mp.register_script_message('set_vs_mode', set_mode)
-    mp.register_script_message('show_vs_main_menu', show_menu)
-    mp.register_script_message('vs_process_video', encode_video)
+    mp.register_script_message('show_vs_menu', show_menu)
+    mp.register_script_message('vs_process_video', process_video)
+    mp.register_script_message('toggle_vs_preset', toggle_preset)
+    mp.register_script_message('toggle_vs_static', toggle_static)
     mp.unobserve_property(init)
 end
-
 mp.observe_property('user-data/__state_loaded__', 'bool', init)

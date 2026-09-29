@@ -26,7 +26,7 @@ sc = False
 ## 使用的显卡序号，0为排序一号
 gpu = 0
 
-## <True|False> trt/trt_rtx后端使用静态引擎
+## <True|False> trt后端使用静态引擎
 static = False
 
 ## <16|32> 模型精度

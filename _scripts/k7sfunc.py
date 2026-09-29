@@ -111,7 +111,7 @@ def get_backend(
     h_in: int = 0,
     be: str = "ort_dml",
     gpu: int = 0,
-    static: bool = True,
+    static: bool = False,
 ):
     if not static and (w_in < 384 or h_in < 384 or w_in > 4096 or h_in > 2176):
         raise Exception("源分辨率不属于动态引擎支持的范围")
@@ -150,9 +150,9 @@ def RIFE(
     abs: bool = False,
     fps_num: int = 2,
     fps_den: int = 1,
-    sc_mode: bool = True,
+    sc_mode: bool = False,
     gpu: int = 0,
-    static: bool = True,
+    static: bool = False,
     precision: int = 16,
 ) -> vs.VideoNode:
     import fractions
@@ -200,9 +200,9 @@ def DRBA(
     abs: bool = False,
     fps_num: int = 2,
     fps_den: int = 1,
-    sc_mode: bool = True,
+    sc_mode: bool = False,
     gpu: int = 0,
-    static: bool = True,
+    static: bool = False,
     precision: int = 16,
 ) -> vs.VideoNode:
     import fractions
@@ -233,7 +233,7 @@ def DRBA(
             h_in=input.height,
             be=be,
             gpu=gpu,
-            static=static,
+            static=True if be == "trt_rtx" else static,
         ),
     )
     out = vs.core.resize.Bilinear(
@@ -247,7 +247,7 @@ def RealESRGAN(
     be: str = "ort_dml",
     model: int = 5008,
     gpu: int = 0,
-    static: bool = True,
+    static: bool = False,
     precision: int = 16,
 ) -> vs.VideoNode:
     fmt_in = input.format.id
@@ -279,7 +279,7 @@ def UAI(
     be: str = "ort_dml",
     model_pth: str = "",
     gpu: int = 0,
-    static: bool = True,
+    static: bool = False,
     precision: int = 16,
 ) -> vs.VideoNode:
     import os

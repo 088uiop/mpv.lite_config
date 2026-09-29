@@ -10,15 +10,17 @@ local itm = {
         chroma_boost = '0.5'
     }
 }
+local vop_gamma = nil
+local vtp_gamma = nil
 local menu_data = {}
 
 local function update()
-    local use_itm = itm.state == 'auto' and (VOP_GAMMA ~= 'pq' and VTP_GAMMA == 'pq') or itm.state == 'yes'
+    local use_itm = itm.state == 'auto' and (vop_gamma ~= 'pq' and vtp_gamma == 'pq') or itm.state == 'yes'
     mp.set_property_native('user-data/itm', itm)
-    mp.set_property_native('inverse-tone-mapping', use_itm)
-    mp.set_property_native('tone-mapping', use_itm and 'bt.2446a' or 'auto')
-    mp.set_property_native('hdr-reference-white', use_itm and itm.reference_white or 'auto')
-    mp.set_property_native('target-peak', use_itm and itm.target_peak or 'auto')
+    mp.set_property_bool('inverse-tone-mapping', use_itm)
+    mp.set_property('tone-mapping', use_itm and 'bt.2446a' or 'auto')
+    mp.set_property('hdr-reference-white', use_itm and itm.reference_white or 'auto')
+    mp.set_property('target-peak', use_itm and itm.target_peak or 'auto')
     mp.set_property_native('glsl-shader-opts', itm.shader_options)
     mp.commandv('script-message-to', 'shader', 'use_itm_shader', use_itm and 'true' or 'false')
     mp.commandv('script-message-to', 'shader', 'refresh_shaders')
@@ -53,20 +55,15 @@ end
 
 local function init(_, loaded)
     if not loaded then return end
-    local saved = mp.get_property_native('user-data/itm')
-    if saved then
-        itm = saved
-    else
-        mp.set_property_native('user-data/itm', itm)
-    end
+    itm = mp.get_property_native('user-data/itm', itm)
     mp.observe_property('video-out-params', 'native', function(_, vop)
-        if not vop or VOP_GAMMA == vop.gamma then return end
-        VOP_GAMMA = vop.gamma
+        if not vop or vop_gamma == vop.gamma then return end
+        vop_gamma = vop.gamma
         update()
     end)
     mp.observe_property('video-target-params', 'native', function(_, vtp)
-        if not vtp or VTP_GAMMA == vtp.gamma then return end
-        VTP_GAMMA = vtp.gamma
+        if not vtp or vtp_gamma == vtp.gamma then return end
+        vtp_gamma = vtp.gamma
         update()
     end)
     mp.register_script_message('update_itm_menu', function(json)
@@ -131,5 +128,4 @@ local function init(_, loaded)
     mp.register_script_message('show_itm_menu', show_menu)
     mp.unobserve_property(init)
 end
-
 mp.observe_property('user-data/__state_loaded__', 'bool', init)

@@ -3,7 +3,6 @@ local utils = require 'mp.utils'
 local options = require 'mp.options'
 local assdraw = require 'mp.assdraw'
 
--- ========== 配置 ==========
 local settings = {
     key_move2up = 'UP',
     key_move2down = 'DOWN',
@@ -39,10 +38,8 @@ local settings = {
     playlist_sliced_prefix = '{\\1c&HFF0000&}▲',
     playlist_sliced_suffix = '{\\1c&HFF0000&}▼',
 }
-
 options.read_options(settings)
 
--- ========== 状态 ==========
 local selection = nil
 local playlist_overlay = mp.create_osd_overlay('ass-events')
 local playlist_visible = false
@@ -54,7 +51,6 @@ local cursor = 0
 local title_table = {}
 local keybindstimer = nil
 
--- ========== 工具函数 ==========
 local function refresh_globals()
     pos = mp.get_property_number('playlist-pos', 0)
     plen = mp.get_property_number('playlist-count', 0)
@@ -79,7 +75,7 @@ local function get_name_from_index(i)
     local name = mp.get_property('playlist/' .. i .. '/filename')
     if not title and title_table[name] then title = title_table[name] end
     if not title then
-        if string.sub(name, 1, 1) == '/' or name:match('^%a:[/\\]') then
+        if name:sub(1, 1) == '/' or name:match('^%a:[/\\]') then
             _, name = utils.split_path(name)
         end
         title = name
@@ -88,11 +84,11 @@ local function get_name_from_index(i)
 end
 
 local function parse_header(str)
-    local esc_title = stripfilename(mp.get_property('media-title') or ''):gsub('%%', '%%%%')
-    local esc_file = stripfilename(mp.get_property('filename') or ''):gsub('%%', '%%%%')
+    local esc_title = stripfilename(mp.get_property('media-title', '')):gsub('%%', '%%%%')
+    local esc_file = stripfilename(mp.get_property('filename', '')):gsub('%%', '%%%%')
     return str:gsub('%%N', '\\N')
         :gsub('%%pos', mp.get_property_number('playlist-pos', 0) + 1)
-        :gsub('%%plen', mp.get_property('playlist-count'))
+        :gsub('%%plen', mp.get_property('playlist-count', ''))
         :gsub('%%cursor', cursor + 1)
         :gsub('%%mediatitle', esc_title)
         :gsub('%%filename', esc_file)
@@ -128,9 +124,7 @@ end
 local function split_keys(keys)
     local out = {}
     if not keys then return out end
-    for k in keys:gmatch('[^%s]+') do
-        table.insert(out, k)
-    end
+    for k in keys:gmatch('[^%s]+') do out[#out + 1] = k end
     return out
 end
 
@@ -174,14 +168,12 @@ local function refresh_keybind_timer()
     end
 end
 
--- ========== 绘制 ==========
 local function draw_playlist()
     refresh_globals()
     if cursor == -1 then cursor = 0 end
     local page_size = settings.showamount
     local page_start = math.floor(cursor / page_size) * page_size
     local page_end = math.min(page_start + page_size - 1, plen - 1)
-
     local ass = assdraw.ass_new()
     local terminaloutput = ''
     ass:append(settings.style_ass_tags)
@@ -217,7 +209,6 @@ local function draw_playlist()
     end
 end
 
--- ========== 控制 ==========
 local function resetcursor()
     selection = nil
     cursor = mp.get_property_number('playlist-pos', 0)
@@ -329,7 +320,6 @@ local function playlist_show(duration)
     if dur > 0 then keybindstimer = mp.add_periodic_timer(dur, remove_keybinds) end
 end
 
--- ========== 事件 ==========
 local function on_file_loaded()
     refresh_globals()
     path = mp.get_property('path')
@@ -349,23 +339,6 @@ local function on_end_file()
     strippedname, path = nil, nil
     if playlist_visible then playlist_show() end
 end
-
--- ========== 注册 ==========
-mp.register_script_message('playlist_osd', function(msg, value, value2)
-    if msg == 'show' and value == 'playlist' then
-        if value2 ~= 'toggle' then
-            playlist_show(value2)
-        else
-            if playlist_visible then
-                remove_keybinds()
-            else
-                playlist_show()
-            end
-        end
-    elseif msg == 'close' then
-        remove_keybinds()
-    end
-end)
 
 mp.register_event('file-loaded', on_file_loaded)
 mp.register_event('end-file', on_end_file)

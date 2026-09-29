@@ -43,15 +43,14 @@ local function update(no_osd)
             }
         end
     end
-    if shaders.gf then table.insert(glsl_shaders, '~~/shaders/kGrainFactory_RT.glsl') end
-    if shaders.itm then table.insert(glsl_shaders, '~~/shaders/ITM_Optimization.glsl') end
+    if shaders.gf then glsl_shaders[#glsl_shaders + 1] = '~~/shaders/kGrainFactory_RT.glsl' end
+    if shaders.itm then glsl_shaders[#glsl_shaders + 1] = '~~/shaders/ITM_Optimization.glsl' end
     mp.set_property_native('glsl-shaders', glsl_shaders)
 end
 
 local function init(_, loaded)
     if not loaded then return end
-    local saved = mp.get_property_native('user-data/shaders')
-    if saved then shaders = saved end
+    shaders = mp.get_property_native('user-data/shaders', shaders)
     update(true)
     mp.register_script_message('set_shader', function(shader, key, value)
         shaders[shader][key] = value
@@ -75,5 +74,4 @@ local function init(_, loaded)
     end)
     mp.unobserve_property(init)
 end
-
 mp.observe_property('user-data/__state_loaded__', 'bool', init)
