@@ -128,6 +128,7 @@ end
 local function set_peak(peak)
     overlay_peak = peak
     mp.set_property_native('user-data/ssdm-peak', overlay_peak)
+    overlay_hdr_mode()
     overlay_hdr_peak()
 end
 
