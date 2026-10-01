@@ -26,7 +26,7 @@ local hw_filters = {
 }
 
 local gpu_vendor = nil
-local gpu_api = nil
+local gpu_context = nil
 
 local function vsr_check()
     local w = mp.get_property_number('width', 0)
@@ -51,9 +51,9 @@ local function vsr_check()
     end
 end
 
-local function gpu_context_check(_, current_gpu_api)
-    gpu_api = current_gpu_api
-    if gpu_api == 'd3d11' then return end
+local function gpu_context_check()
+    gpu_context = mp.get_property_native('current-gpu-context')
+    if gpu_context == 'd3d11' then return end
     for id, filter in pairs(hw_filters) do
         if states[id] then
             states[id] = false
@@ -64,7 +64,7 @@ local function gpu_context_check(_, current_gpu_api)
 end
 
 local function toggle_hw_filter(id)
-    if gpu_api ~= 'd3d11' or gpu_vendor ~= hw_filters[id].vendor then return end
+    if gpu_context ~= 'd3d11' or gpu_vendor ~= hw_filters[id].vendor then return end
     states[id] = not states[id]
     mp.set_property_native('user-data/hw-filter', states)
     mp.osd_message(hw_filters[id].label .. ': ' .. (states[id] and '开' or '关'))
@@ -103,7 +103,7 @@ local function init(_, loaded)
     mp.enable_messages('v')
     states = mp.get_property_native('user-data/hw-filter', states)
     mp.set_property_native('user-data/hw-filter', states)
-    mp.observe_property('gpu-api', 'string', gpu_context_check)
+    mp.observe_property('gpu-api', nil, gpu_context_check)
     mp.register_event('file-loaded', vsr_check)
     mp.register_event('log-message', detect_gpu)
     mp.register_script_message('toggle_hw_filter', toggle_hw_filter)
