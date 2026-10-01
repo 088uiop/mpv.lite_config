@@ -4,10 +4,10 @@ local utils = require 'mp.utils'
 local itm = {
     state = 'auto',
     target_peak = 'auto',
-    reference_white = '203',
+    reference_white = 'auto',
     shader_options = {
-        luma_boost = '0.5',
-        chroma_boost = '0.5'
+        luma_boost = '0',
+        chroma_boost = '0'
     }
 }
 local vop_gamma = nil
@@ -18,7 +18,6 @@ local function update()
     local use_itm = itm.state == 'auto' and (vop_gamma ~= 'pq' and vtp_gamma == 'pq') or itm.state == 'yes'
     mp.set_property_native('user-data/itm', itm)
     mp.set_property_bool('inverse-tone-mapping', use_itm)
-    mp.set_property('tone-mapping', use_itm and 'bt.2446a' or 'auto')
     mp.set_property('hdr-reference-white', use_itm and itm.reference_white or 'auto')
     mp.set_property('target-peak', use_itm and itm.target_peak or 'auto')
     mp.set_property_native('glsl-shader-opts', itm.shader_options)
