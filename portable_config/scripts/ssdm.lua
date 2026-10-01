@@ -11,7 +11,7 @@ local pading = false
 local ass_loaded = false
 local show_danmaku = false
 local danmaku_loaded = false
-local danmaku_delay = 0
+local danmaku_delay = '0'
 local form = 'osd'
 local overlay_peak = 'sdr'
 local pid = utils.getpid()
@@ -71,7 +71,7 @@ end
 
 local function overlay_delay()
     if not overlay_connected then return end
-    overlay_send(string.format('{"type":"set_delay","delay":%.3f}', danmaku_delay))
+    overlay_send(string.format('{"type":"set_delay","delay":%.3f}', tonumber(danmaku_delay)))
 end
 
 
@@ -132,8 +132,8 @@ local function set_peak(peak)
 end
 
 local function add_delay(value, no_osd)
-    danmaku_delay = danmaku_delay + tonumber(value)
-    if not no_osd then mp.osd_message('当前弹幕延迟: ' .. (danmaku_delay > 0 and '+' or '') .. danmaku_delay .. 's') end
+    danmaku_delay = tostring(tonumber(danmaku_delay) + tonumber(value))
+    if not no_osd then mp.osd_message('当前弹幕延迟: ' .. (tonumber(danmaku_delay) > 0 and '+' or '') .. danmaku_delay .. 's') end
     if form == 'osd' then
         mp.commandv('script-message-to', 'uosc_danmaku', 'ssdm_command', 'delayset', danmaku_delay)
     elseif form == 'sub' then
@@ -184,7 +184,8 @@ local function toggle_form(value)
     add_delay('0', true)
     visibility_sync(true)
     if form ~= 'osd' and show_danmaku then
-        mp.commandv('script-message-to', 'uosc_danmaku', 'ssdm_command', danmaku_loaded and 'refresh' or 'load')
+        mp.commandv('script-message-to', 'uosc_danmaku', 'ssdm_command', 'delayset', '0')
+        mp.commandv('script-message-to', 'uosc_danmaku', 'ssdm_command', 'refresh', 'true')
     end
 end
 
@@ -239,32 +240,37 @@ local function create_ass(comments, options, output)
     return true
 end
 
-local function load_danmaku(json)
-    danmaku_loaded = true
+local function load_danmaku(json, init)
+    local data = utils.parse_json(json) or {}
+    danmaku_loaded = data.comments ~= nil and #data.comments > 0
     if form == 'osd' then
         mp.commandv('script-message-to', 'uosc_danmaku', 'ssdm_command', 'delayset', danmaku_delay)
-        return
-    end
-    local data = utils.parse_json(json)
-    if create_ass(data.comments, data.options, ass_path) then
+    elseif create_ass(data.comments, data.options, ass_path) then
         if form == 'sub' then
             if sid then
-                mp.commandv('sub-reload', sid)
-            else
-                local max_sid = 0
-                for _, track in ipairs(mp.get_property_native('track-list', {})) do
-                    if track.type == 'sub' and track.id > max_sid then
-                        max_sid = track.id
+                mp.commandv('sub-remove', sid)
+                sid = nil
+            end
+            mp.commandv('sub-add', ass_path, 'auto', 'ssdm_danmaku')
+            for _, track in ipairs(mp.get_property_native('track-list', {})) do
+                if track.type == 'sub' and track['external-filename'] then
+                    if track['external-filename']:find('ssdm%-danmaku%-' .. pid) then
+                        sid = track.id
+                        mp.set_property_number('secondary-sid', track.id)
+                        break
                     end
                 end
-                sid = max_sid + 1
-                mp.commandv('sub-add', ass_path, 'auto', 'ssdm_danmaku')
-                mp.set_property_number('secondary-sid', sid)
             end
         elseif form == 'overlay' then
             overlay_load_ass()
         end
         ass_loaded = true
+    end
+    if init == 'true' then
+        show_danmaku = true
+        mp.set_property_native('user-data/ssdm-visibility', true)
+        mp.commandv('script-message-to', 'uosc', 'set', 'ssdm_show_danmaku', 'on')
+        visibility_sync()
     end
 end
 
@@ -303,7 +309,7 @@ end
 
 local function init(_, loaded)
     if not loaded then return end
-    local script = io.open(mp.command_native({ 'expand-path', '~~/' }) .. '/scripts/uosc_danmaku/main.lua', 'a+')
+    local script = io.open(mp.command_native({ 'expand-path', '~~/scripts/uosc_danmaku/main.lua' }), 'a+')
     if script then
         local support = false
         for line in script:lines() do
@@ -317,16 +323,19 @@ local function init(_, loaded)
             script:write('\n\n')
             script:write([[
 -- ssdm --
-local ssdm_variables = {
-    poll_danmaku = nil,
-    prev_enabled = false,
-    options = options,
-    show_message = show_message,
-    render_danmaku = render_danmaku
-}
-local ssdm_functions = {
+local _enabled = false
+local _options = options
+local ssdm_funs = {
+    load = function()
+        if COMMENTS == nil or #COMMENTS == 0 then init(mp.get_property("path")) end
+    end,
+    refresh = function(covert, init)
+        if covert then convert_danmaku_to_ass_events(true) end
+        local data = utils.format_json({ comments = COMMENTS, options = _options })
+        mp.commandv("script-message-to", "ssdm", "load_danmaku", data, tostring(init))
+    end,
     showset = function(show)
-        ENABLED = show == 'true'
+        _enabled = show == "true"
         if ENABLED then show_danmaku_func() else hide_danmaku_func() end
     end,
     delayset = function(delay)
@@ -340,66 +349,33 @@ local ssdm_functions = {
             convert_danmaku_to_ass_events(true)
             if ENABLED then render() end
         end)
-    end,
-    load = function()
-        if ssdm_variables.poll_danmaku then
-            ssdm_variables.poll_danmaku:kill()
-            ssdm_variables.poll_danmaku = nil
-            ENABLED = ssdm_variables.prev_enabled
-        end
-        ssdm_variables.prev_enabled = ENABLED
-        ENABLED = true
-        show_message = function() end
-        render_danmaku = function() end
-        local function restore()
-            ENABLED = ssdm_variables.prev_enabled
-            show_message = ssdm_variables.show_message
-            render_danmaku = ssdm_variables.render_danmaku
-        end
-        if COMMENTS == nil or #COMMENTS == 0 then init(mp.get_property('path')) end
-        ssdm_variables.show_message('弹幕加载中...', 10)
-        local tries = 0
-        local function poll()
-            if (COMMENTS and #COMMENTS > 0) then
-                if ssdm_variables.prev_enabled then show_danmaku_func() end
-                ssdm_variables.show_message('弹幕加载成功，共计' .. #COMMENTS .. '条弹幕', 3)
-                local data = utils.format_json({ comments = COMMENTS, options = ssdm_variables.options })
-                mp.commandv('script-message-to', 'ssdm', 'load_danmaku', data)
-                restore()
-            elseif tries < 50 then
-                ssdm_variables.poll_danmaku = mp.add_timeout(0.2, poll)
-            else
-                ssdm_variables.show_message('弹幕加载超时', 3)
-                restore()
-            end
-            tries = tries + 1
-        end
-        poll()
-    end,
-    refresh = function()
-        if rebuild_convert_timer then rebuild_convert_timer:kill() end
-        for _, source in pairs(DANMAKU.sources) do
-            if source.data and not source.blocked then
-                source.delay_segments = { { start = 0, delay = 0 } }
-            end
-        end
-        convert_danmaku_to_ass_events(true)
-        local data = utils.format_json({ comments = COMMENTS, options = ssdm_variables.options })
-        mp.commandv('script-message-to', 'ssdm', 'load_danmaku', data)
     end
 }
-options = {}
-setmetatable(options, {
-    __index = function(_, k)
-        return ssdm_variables.options[k]
+rawset(_G, 'ENABLED', nil)
+setmetatable(_G, {
+    __index = function(t, k)
+        if k == 'ENABLED' then return _enabled end
+        return rawget(t, k)
     end,
-    __newindex = function(_, k, v)
-        ssdm_variables.options[k] = v
-        local data = utils.format_json({ comments = COMMENTS, options = ssdm_variables.options })
-        mp.commandv('script-message-to', 'ssdm', 'load_danmaku', data)
+    __newindex = function(t, k, v)
+        if k == 'ENABLED' then return end
+        rawset(t, k, v)
     end
 })
-mp.register_script_message('ssdm_command', function(fun, arg) ssdm_functions[fun](arg) end)
+options = setmetatable({}, {
+    __index = function(_, k) return _options[k] end,
+    __newindex = function(_, k, v)
+        _options[k] = v
+        ssdm_funs.refresh(true)
+    end
+})
+load_danmaku = function(from_menu, no_osd)
+    convert_danmaku_to_ass_events(no_osd)
+    ssdm_funs.showset(tostring(_enabled))
+    if not no_osd then show_loaded(true) end
+    ssdm_funs.refresh(false, from_menu and not no_osd)
+end
+mp.register_script_message('ssdm_command', function(fun, arg) ssdm_funs[fun](arg) end)
 ]])
             mp.msg.info('ssdm支持注入成功，重启后即可使用ssdm相关功能')
         end
@@ -427,7 +403,8 @@ mp.register_script_message('ssdm_command', function(fun, arg) ssdm_functions[fun
     end)
     mp.register_event('file-loaded', function()
         danmaku_loaded = false
-        if not show_danmaku then return end
+        ass_loaded = false
+        if not show_danmaku or form == 'osd' then return end
         mp.commandv('script-message-to', 'uosc_danmaku', 'ssdm_command', 'load')
     end)
     mp.register_event('end-file', function()

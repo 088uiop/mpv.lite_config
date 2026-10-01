@@ -1018,3 +1018,58 @@ setmetatable(options, {
     end
 })
 mp.register_script_message("ssdm_command", function(fun, arg) ssdm_functions[fun](arg) end)
+
+-- ssdm --
+local _enabled = false
+local _options = options
+local ssdm_funs = {
+    load = function()
+        if COMMENTS == nil or #COMMENTS == 0 then init(mp.get_property("path")) end
+    end,
+    refresh = function(covert, init)
+        if covert then convert_danmaku_to_ass_events(true) end
+        local data = utils.format_json({ comments = COMMENTS, options = _options })
+        mp.commandv("script-message-to", "ssdm", "load_danmaku", data, tostring(init))
+    end,
+    showset = function(show)
+        _enabled = show == "true"
+        if ENABLED then show_danmaku_func() else hide_danmaku_func() end
+    end,
+    delayset = function(delay)
+        if rebuild_convert_timer then rebuild_convert_timer:kill() end
+        for _, source in pairs(DANMAKU.sources) do
+            if source.data and not source.blocked then
+                source.delay_segments = { { start = 0, delay = tonumber(delay) } }
+            end
+        end
+        rebuild_convert_timer = mp.add_timeout(0.1, function()
+            convert_danmaku_to_ass_events(true)
+            if ENABLED then render() end
+        end)
+    end
+}
+rawset(_G, 'ENABLED', nil)
+setmetatable(_G, {
+    __index = function(t, k)
+        if k == 'ENABLED' then return _enabled end
+        return rawget(t, k)
+    end,
+    __newindex = function(t, k, v)
+        if k == 'ENABLED' then return end
+        rawset(t, k, v)
+    end
+})
+options = setmetatable({}, {
+    __index = function(_, k) return _options[k] end,
+    __newindex = function(_, k, v)
+        _options[k] = v
+        ssdm_funs.refresh(true)
+    end
+})
+load_danmaku = function(from_menu, no_osd)
+    convert_danmaku_to_ass_events(no_osd)
+    ssdm_funs.showset(tostring(_enabled))
+    if not no_osd then show_loaded(true) end
+    ssdm_funs.refresh(false, from_menu and not no_osd)
+end
+mp.register_script_message('ssdm_command', function(fun, arg) ssdm_funs[fun](arg) end)
