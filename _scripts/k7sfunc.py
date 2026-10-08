@@ -113,7 +113,11 @@ def get_backend(
     gpu: int = 0,
     static: bool = False,
 ):
-    if not static and (w_in < 384 or h_in < 384 or w_in > 4096 or h_in > 2176):
+    if (
+        (be == "trt" or be == "trt_rtx")
+        and not static
+        and (w_in < 384 or h_in < 384 or w_in > 4096 or h_in > 2176)
+    ):
         raise Exception("源分辨率不属于动态引擎支持的范围")
     backend_configs = {
         "ort_dml": lambda: vsmlrt.BackendV2.ORT_DML(
@@ -137,6 +141,11 @@ def get_backend(
             max_shapes=None if static else [4096, 2176],
             use_cuda_graph=True,
             device_id=gpu,
+        ),
+        "migx": lambda: vsmlrt.BackendV2.MIGX(
+            num_streams=2,
+            fast_math=True,
+            device_id=0,
         ),
     }
     return backend_configs[be]()

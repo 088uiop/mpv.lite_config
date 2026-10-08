@@ -181,7 +181,8 @@ local settings_menu = {
                     items = {
                         { title = 'DML', value = 'rife: be "ort_dml" over' },
                         { title = 'TRT', value = 'rife: be "trt" over', actions = { { name = 'toggle_static', icon = 'toggle_off', label = '静态引擎开关' } } },
-                        { title = 'TRT_RTX', value = 'rife: be "trt_rtx" over', actions = { { name = 'toggle_static', icon = 'toggle_off', label = '静态引擎开关' } } }
+                        { title = 'TRT_RTX', value = 'rife: be "trt_rtx" over', actions = { { name = 'toggle_static', icon = 'toggle_off', label = '静态引擎开关' } } },
+                        { title = 'MIGX', value = 'rife: be "migx" over' }
                     }
                 },
                 {
@@ -252,7 +253,8 @@ local settings_menu = {
                     items = {
                         { title = 'DML', value = 'drba: be "ort_dml" over' },
                         { title = 'TRT', value = 'drba: be "trt" over', actions = { { name = 'toggle_static', icon = 'toggle_off', label = '静态引擎开关' } } },
-                        { title = 'TRT_RTX', value = 'drba: be "trt_rtx" over', hint = '此处仅静态引擎可用' }
+                        { title = 'TRT_RTX', value = 'drba: be "trt_rtx" over', hint = '此处仅静态引擎可用' },
+                        { title = 'MIGX', value = 'drba: be "migx" over' }
                     }
                 },
                 {
@@ -321,7 +323,8 @@ local settings_menu = {
                     items = {
                         { title = 'DML', value = 'realesrgan: be "ort_dml" over' },
                         { title = 'TRT', value = 'realesrgan: be "trt" over', actions = { { name = 'toggle_static', icon = 'toggle_off', label = '静态引擎开关' } } },
-                        { title = 'TRT_RTX', value = 'realesrgan: be "trt_rtx" over', actions = { { name = 'toggle_static', icon = 'toggle_off', label = '静态引擎开关' } } }
+                        { title = 'TRT_RTX', value = 'realesrgan: be "trt_rtx" over', actions = { { name = 'toggle_static', icon = 'toggle_off', label = '静态引擎开关' } } },
+                        { title = 'MIGX', value = 'realesrgan: be "migx" over' }
                     }
                 },
                 {
@@ -384,7 +387,8 @@ local settings_menu = {
                     items = {
                         { title = 'DML', value = 'uai: be "ort_dml" over' },
                         { title = 'TRT', value = 'uai: be "trt" over', actions = { { name = 'toggle_static', icon = 'toggle_off', label = '静态引擎开关' } } },
-                        { title = 'TRT_RTX', value = 'uai: be "trt_rtx" over', actions = { { name = 'toggle_static', icon = 'toggle_off', label = '静态引擎开关' } } }
+                        { title = 'TRT_RTX', value = 'uai: be "trt_rtx" over', actions = { { name = 'toggle_static', icon = 'toggle_off', label = '静态引擎开关' } } },
+                        { title = 'MIGX', value = 'uai: be "migx" over' }
                     }
                 },
                 {

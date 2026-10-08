@@ -35,7 +35,7 @@ from vapoursynth import core
 
 
 def get_plugins_path() -> str:
-    plugin_names = ("ort", "trt", "trt_rtx")
+    plugin_names = ("ort", "trt", "trt_rtx", "migx")
 
     for plugin_name in plugin_names:
         try:
@@ -49,27 +49,36 @@ def get_plugins_path() -> str:
 
 plugins_path: str = get_plugins_path()
 trtexec_path: str = os.path.join(plugins_path, "vsmlrt-cuda", "trtexec")
+migraphx_driver_path: str = os.path.join(plugins_path, "vsmlrt-hip", "migraphx-driver")
 tensorrt_rtx_path: str = os.path.join(plugins_path, "vsmlrt-cuda", "tensorrt_rtx")
 models_path: str = os.path.join(plugins_path, "models")
 
 
 class Backend:
     @dataclass(frozen=False)
-    class TRT:
-        """backend for nvidia gpus (TensorRT 11+)"""
+    class ORT_DML:
+        device_id: int = 0
+        num_streams: int = 1
+        verbosity: int = 2
 
-        max_shapes: typing.Optional[typing.Tuple[int, int]] = None
-        opt_shapes: typing.Optional[typing.Tuple[int, int]] = None
+        # internal backend attributes
+        supports_onnx_serialization: bool = True
+
+    @dataclass(frozen=False)
+    class TRT:
         device_id: int = 0
         workspace: typing.Optional[int] = None
         verbose: bool = False
-        use_cuda_graph: bool = True
+        use_cuda_graph: bool = False
         num_streams: int = 1
+
         static_shape: bool = True
-        log: bool = True
+        min_shapes: typing.Tuple[int, int] = (0, 0)
+        max_shapes: typing.Optional[typing.Tuple[int, int]] = None
+        opt_shapes: typing.Optional[typing.Tuple[int, int]] = None
+
         use_edge_mask_convolutions: bool = True
         use_jit_convolutions: bool = True
-        min_shapes: typing.Tuple[int, int] = (0, 0)
         builder_optimization_level: int = 3
         max_aux_streams: typing.Optional[int] = None
         short_path: typing.Optional[bool] = (
@@ -87,8 +96,6 @@ class Backend:
 
     @dataclass(frozen=False)
     class TRT_RTX:
-        """backend for nvidia rtx gpus (TensorRT-RTX)"""
-
         device_id: int = 0
         workspace: typing.Optional[int] = None
         verbose: bool = False
@@ -117,22 +124,27 @@ class Backend:
         supports_onnx_serialization: bool = False
 
     @dataclass(frozen=False)
-    class ORT_DML:
-        """backend for directml (d3d12) devices"""
-
+    class MIGX:
         device_id: int = 0
+        opt_shapes: typing.Optional[typing.Tuple[int, int]] = None
+        fast_math: bool = True
+        exhaustive_tune: bool = False
         num_streams: int = 1
-        verbosity: int = 2
-        output_format: int = 0  # 0: fp32, 1: fp16
+        short_path: typing.Optional[bool] = (
+            None  # True on Windows by default, False otherwise
+        )
+        custom_env: typing.Dict[str, str] = field(default_factory=lambda: {})
+        custom_args: typing.List[str] = field(default_factory=lambda: [])
 
         # internal backend attributes
-        supports_onnx_serialization: bool = True
+        supports_onnx_serialization: bool = False
 
 
 backendT = typing.Union[
+    Backend.ORT_DML,
     Backend.TRT,
     Backend.TRT_RTX,
-    Backend.ORT_DML,
+    Backend.MIGX,
 ]
 
 
@@ -232,11 +244,7 @@ def RIFEMerge(
     backend = init_backend(backend=backend, trt_opt_shapes=(tile_w, tile_h))
 
     if fp16:
-        network_path, fp16_io = network_path[:-5] + "_fp16.onnx", True
-    else:
-        fp16_io = False
-    if isinstance(backend, Backend.ORT_DML):
-        backend.output_format = 1 if fp16_io else 0
+        network_path = network_path[:-5] + "_fp16.onnx"
 
     return inference_with_fallback(
         clips=clips,
@@ -597,11 +605,7 @@ def DRBAMerge(
     backend = init_backend(backend=backend, trt_opt_shapes=(tile_w, tile_h))
 
     if fp16:
-        network_path, fp16_io = network_path[:-5] + "_fp16.onnx", True
-    else:
-        fp16_io = False
-    if isinstance(backend, Backend.ORT_DML):
-        backend.output_format = 1 if fp16_io else 0
+        network_path = network_path[:-5] + "_fp16.onnx"
 
     return inference_with_fallback(
         clips=clips,
@@ -976,11 +980,7 @@ def RealESRGAN(
         )
 
     if fp16:
-        network_path, fp16_io = network_path[:-5] + "_fp16.onnx", True
-    else:
-        fp16_io = False
-    if isinstance(backend, Backend.ORT_DML):
-        backend.output_format = 1 if fp16_io else 0
+        network_path = network_path[:-5] + "_fp16.onnx"
 
     clip_org = clip
     clip = inference_with_fallback(
@@ -1419,6 +1419,134 @@ def tensorrt_rtx(
     return engine_path
 
 
+def get_mxr_path(
+    network_path: str,
+    opt_shapes: typing.Tuple[int, int],
+    fast_math: bool,
+    exhaustive_tune: bool,
+    device_id: int,
+    short_path: typing.Optional[bool],
+) -> str:
+
+    with open(network_path, "rb") as file:
+        checksum = zlib.adler32(file.read())
+
+    migx_version = core.migx.Version()["migraphx_version_build"].decode()
+
+    try:
+        device_name = core.migx.DeviceProperties(device_id)["name"].decode()
+        device_name = device_name.replace(" ", "-")
+    except AttributeError:
+        device_name = f"device{device_id}"
+
+    shape_str = f"{opt_shapes[0]}x{opt_shapes[1]}"
+
+    identity = (
+        shape_str
+        + ("_fast" if fast_math else "")
+        + ("_exhaustive" if exhaustive_tune else "")
+        + f"_migx-{migx_version}"
+        + f"_{device_name}"
+        + f"_{checksum:x}"
+    )
+
+    if short_path or (short_path is None and platform.system() == "Windows"):
+        dirname, basename = os.path.split(network_path)
+        return os.path.join(
+            dirname, f"{zlib.crc32((basename + identity).encode()):x}.mxr"
+        )
+    else:
+        return f"{network_path}.{identity}.mxr"
+
+
+def migraphx_driver(
+    network_path: str,
+    channels: int,
+    opt_shapes: typing.Tuple[int, int],
+    fast_math: bool,
+    exhaustive_tune: bool,
+    device_id: int,
+    input_name: str = "input",
+    short_path: typing.Optional[bool] = None,
+    custom_env: typing.Dict[str, str] = {},
+    custom_args: typing.List[str] = [],
+) -> str:
+
+    if isinstance(opt_shapes, int):
+        opt_shapes = (opt_shapes, opt_shapes)
+
+    mxr_path = get_mxr_path(
+        network_path=network_path,
+        opt_shapes=opt_shapes,
+        fast_math=fast_math,
+        exhaustive_tune=exhaustive_tune,
+        device_id=device_id,
+        short_path=short_path,
+    )
+
+    if os.access(mxr_path, mode=os.R_OK) and os.path.getsize(mxr_path) >= 1024:
+        return mxr_path
+
+    alter_mxr_path = os.path.join(
+        tempfile.gettempdir(), os.path.splitdrive(mxr_path)[1][1:]
+    )
+
+    if os.access(alter_mxr_path, mode=os.R_OK) and os.path.getsize(mxr_path) >= 1024:
+        return alter_mxr_path
+
+    try:
+        # test writability
+        with open(mxr_path, "w") as f:
+            pass
+        os.remove(mxr_path)
+    except PermissionError:
+        print(f"{mxr_path} not writable", file=sys.stderr)
+        mxr_path = alter_mxr_path
+        dirname = os.path.dirname(mxr_path)
+        if not os.path.exists(dirname):
+            os.makedirs(dirname)
+        print(f"change mxr path to {mxr_path}", file=sys.stderr)
+
+    if device_id != 0:
+        raise ValueError('"device_id" must be 0')
+
+    args = [
+        migraphx_driver_path,
+        "compile",
+        "--onnx",
+        f"{network_path}",
+        "--gpu",
+        # f"--device={device_id}",
+        "--optimize",
+        "--binary",
+        "--output",
+        f"{mxr_path}",
+    ]
+
+    args.extend(
+        [
+            "--input-dim",
+            f"@{input_name}",
+            "1",
+            f"{channels}",
+            f"{opt_shapes[1]}",
+            f"{opt_shapes[0]}",
+        ]
+    )
+
+    if not fast_math:
+        args.append("--disable-fast-math")
+
+    if exhaustive_tune:
+        args.append("--exhaustive-tune")
+
+    args.extend(custom_args)
+
+    subprocess.run(args, env=custom_env, check=True, stdout=sys.stderr)
+
+    return mxr_path
+
+
 def calc_size(width: int, tiles: int, overlap: int, multiple: int = 1) -> int:
     return (
         math.ceil((width + 2 * overlap * (tiles - 1)) / (tiles * multiple)) * multiple
@@ -1458,12 +1586,14 @@ def calc_tilesize(
 
 def init_backend(backend: backendT, trt_opt_shapes: typing.Tuple[int, int]) -> backendT:
 
-    if backend is Backend.TRT:  # type: ignore
+    if backend is Backend.ORT_DML:  # type: ignore
+        backend = Backend.ORT_DML()
+    elif backend is Backend.TRT:  # type: ignore
         backend = Backend.TRT()
     elif backend is Backend.TRT_RTX:  # type: ignore
         backend = Backend.TRT_RTX()
-    elif backend is Backend.ORT_DML:  # type: ignore
-        backend = Backend.ORT_DML()
+    elif backend is Backend.MIGX:  # type: ignore
+        backend = Backend.MIGX()
 
     backend = copy.deepcopy(backend)
 
@@ -1473,6 +1603,9 @@ def init_backend(backend: backendT, trt_opt_shapes: typing.Tuple[int, int]) -> b
 
         if backend.max_shapes is None:
             backend.max_shapes = backend.opt_shapes
+    elif isinstance(backend, Backend.MIGX):
+        if backend.opt_shapes is None:
+            backend.opt_shapes = trt_opt_shapes
 
     return backend
 
@@ -1503,6 +1636,8 @@ def _inference(
     if path_is_serialization:
         if isinstance(backend, Backend.TRT):
             raise ValueError('"path_is_serialization" must be False for trt backend')
+        elif isinstance(backend, Backend.MIGX):
+            raise ValueError('"path_is_serialization" must be False for migx backend')
         elif isinstance(backend, Backend.TRT_RTX):
             raise ValueError(
                 '"path_is_serialization" must be False for trt_rtx backend'
@@ -1600,17 +1735,6 @@ def _inference(
         kwargs["flexible_output_prop"] = flexible_output_prop
 
     if isinstance(backend, Backend.ORT_DML):
-        version_list = (
-            core.ort.Version().get("onnxruntime_version", b"0.0.0").split(b".")
-        )
-        if len(version_list) != 3:
-            version = (0, 0, 0)
-        else:
-            version = tuple(map(int, version_list))
-
-        if version >= (1, 18, 0):
-            kwargs["output_format"] = backend.output_format
-
         ret = core.ort.Model(
             clips,
             network_path,
@@ -1619,7 +1743,6 @@ def _inference(
             device_id=backend.device_id,
             num_streams=backend.num_streams,
             verbosity=backend.verbosity,
-            fp16=False,
             path_is_serialization=path_is_serialization,
             **kwargs,
         )
@@ -1703,6 +1826,32 @@ def _inference(
             use_cuda_graph=backend.use_cuda_graph,
             num_streams=backend.num_streams,
             verbosity=4 if backend.verbose else 2,
+            **kwargs,
+        )
+    elif isinstance(backend, Backend.MIGX):
+        network_path = typing.cast(str, network_path)
+
+        channels = sum(clip.format.num_planes for clip in clips)
+
+        opt_shapes = backend.opt_shapes if backend.opt_shapes is not None else tilesize
+
+        mxr_path = migraphx_driver(
+            network_path,
+            channels=channels,
+            opt_shapes=opt_shapes,
+            fast_math=backend.fast_math,
+            exhaustive_tune=backend.exhaustive_tune,
+            device_id=backend.device_id,
+            input_name=input_name,
+            short_path=backend.short_path,
+            custom_env=backend.custom_env,
+            custom_args=backend.custom_args,
+        )
+        ret = core.migx.Model(
+            clips,
+            mxr_path,
+            device_id=backend.device_id,
+            num_streams=backend.num_streams,
             **kwargs,
         )
     else:
@@ -1949,6 +2098,16 @@ class BackendV2:
     """simplified backend interfaces with keyword-only arguments"""
 
     @staticmethod
+    def ORT_DML(
+        *,
+        device_id: int = 0,
+        num_streams: int = 1,
+        **kwargs,
+    ) -> Backend.ORT_DML:
+
+        return Backend.ORT_DML(device_id=device_id, num_streams=num_streams, **kwargs)
+
+    @staticmethod
     def TRT(
         *,
         num_streams: int = 1,
@@ -1999,11 +2158,16 @@ class BackendV2:
         )
 
     @staticmethod
-    def ORT_DML(
-        *, device_id: int = 0, num_streams: int = 1, **kwargs
-    ) -> Backend.ORT_DML:
+    def MIGX(
+        *,
+        opt_shapes: typing.Optional[typing.Tuple[int, int]] = None,
+        **kwargs,
+    ) -> Backend.MIGX:
 
-        return Backend.ORT_DML(device_id=device_id, num_streams=num_streams, **kwargs)
+        return Backend.MIGX(
+            opt_shapes=opt_shapes,
+            **kwargs,
+        )
 
 
 def fmtc_resample(clip: vs.VideoNode, **kwargs) -> vs.VideoNode:
