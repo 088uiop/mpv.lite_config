@@ -123,21 +123,21 @@ local settings_menu = {
                 {
                     title = '预降低分辨率',
                     items = {
-                        { title = '720p',  value = 'svp: wpre 1280; set svp hpre 720 over' },
-                        { title = '1080p', value = 'svp: wpre 1920; set svp hpre 1080 over' },
-                        { title = '1440p', value = 'svp: wpre 2560; set svp hpre 1440 over' },
-                        { title = '2160p', value = 'svp: wpre 3840; set svp hpre 2160 over' }
+                        { title = '720p',  value = 'svp: wpre 1280; hpre 720 over' },
+                        { title = '1080p', value = 'svp: wpre 1920; hpre 1080 over' },
+                        { title = '1440p', value = 'svp: wpre 2560; hpre 1440 over' },
+                        { title = '2160p', value = 'svp: wpre 3840; hpre 2160 over' }
                     }
                 },
                 {
                     title = '输出',
                     items = {
-                        { title = '2x',     value = 'svp: fnum 2; set svp fden 1; set svp abs False over' },
-                        { title = '4x',     value = 'svp: fnum 4; set svp fden 1; set svp abs False over' },
-                        { title = '8x',     value = 'svp: fnum 8; set svp fden 1; set svp abs False over' },
-                        { title = '60fps',  value = 'svp: fnum 60000; set svp fden 1001; set svp abs True over' },
-                        { title = '120fps', value = 'svp: fnum 120000; set svp fden 1001; set svp abs True over' },
-                        { title = '240fps', value = 'svp: fnum 240000; set svp fden 1001; set svp abs True over' }
+                        { title = '2x',     value = 'svp: fnum 2; fden 1; abs False over' },
+                        { title = '4x',     value = 'svp: fnum 4; fden 1; abs False over' },
+                        { title = '8x',     value = 'svp: fnum 8; fden 1; abs False over' },
+                        { title = '60fps',  value = 'svp: fnum 60000; fden 1001; abs True over' },
+                        { title = '120fps', value = 'svp: fnum 120000; fden 1001; abs True over' },
+                        { title = '240fps', value = 'svp: fnum 240000; fden 1001; abs True over' }
                     }
                 },
                 {
