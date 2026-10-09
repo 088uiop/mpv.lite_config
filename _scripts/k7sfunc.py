@@ -144,7 +144,7 @@ def get_backend(
         ),
         "migx": lambda: vsmlrt.BackendV2.MIGX(
             num_streams=2,
-            fast_math=True,
+            exhaustive_tune=False,
             device_id=0,
         ),
     }
