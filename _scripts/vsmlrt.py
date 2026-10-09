@@ -1093,7 +1093,6 @@ def trtexec(
     verbose: bool = False,
     use_cuda_graph: bool = False,
     static_shape: bool = True,
-    log: bool = False,
     use_edge_mask_convolutions: bool = True,
     use_jit_convolutions: bool = True,
     input_name: str = "input",
@@ -1229,45 +1228,9 @@ def trtexec(
 
     args.extend(custom_args)
 
-    if log:
-        env_key = "TRTEXEC_LOG_FILE"
-        prev_env_value = os.environ.get(env_key)
-
-        if prev_env_value is not None and len(prev_env_value) > 0:
-            # env_key has been set, no extra action
-            env = {env_key: prev_env_value, "CUDA_MODULE_LOADING": "LAZY"}
-            env.update(**custom_env)
-            subprocess.run(args, env=env, check=True, stdout=sys.stderr)
-        else:
-            time_str = time.strftime("%y%m%d_%H%M%S", time.localtime())
-
-            log_filename = os.path.join(
-                tempfile.gettempdir(), f"trtexec_{time_str}.log"
-            )
-
-            env = {env_key: log_filename, "CUDA_MODULE_LOADING": "LAZY"}
-            env.update(**custom_env)
-
-            completed_process = subprocess.run(
-                args, env=env, check=False, stdout=sys.stderr
-            )
-
-            if completed_process.returncode == 0:
-                try:
-                    os.remove(log_filename)
-                except FileNotFoundError:
-                    pass
-            else:
-                if os.path.exists(log_filename):
-                    raise RuntimeError(
-                        f"trtexec execution fails, log has been written to {log_filename}"
-                    )
-                else:
-                    raise RuntimeError(f"trtexec execution fails but no log is found")
-    else:
-        env = {"CUDA_MODULE_LOADING": "LAZY"}
-        env.update(**custom_env)
-        subprocess.run(args, env=env, check=True, stdout=sys.stderr)
+    env = {"CUDA_MODULE_LOADING": "LAZY"}
+    env.update(**custom_env)
+    subprocess.run(args, env=env, check=True, stdout=sys.stderr)
 
     return engine_path
 
@@ -1764,7 +1727,6 @@ def _inference(
             verbose=backend.verbose,
             use_cuda_graph=backend.use_cuda_graph,
             static_shape=backend.static_shape,
-            log=backend.log,
             use_edge_mask_convolutions=backend.use_edge_mask_convolutions,
             use_jit_convolutions=backend.use_jit_convolutions,
             input_name=input_name,
