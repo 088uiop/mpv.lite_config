@@ -55,7 +55,7 @@ local function chap_skip_toggle()
     chap_skip = not chap_skip
     mp.set_property_native('user-data/chap-skip', chap_skip)
     mp.osd_message('自动跳过设定章节: ' .. (chap_skip and '开' or '关'))
-    chap_skip_check(_, mp.get_property('chapter-metadata/TITLE'))
+    chap_skip_check(nil, mp.get_property('chapter-metadata/TITLE'))
 end
 
 local function toggle_vs(state)
@@ -69,7 +69,10 @@ end
 local function speed_auto(tab)
     if tab.event == 'down' then
         local function start()
-            if opt.speed_vs_off then toggle_vs(false) end
+            if opt.speed_vs_off then
+                if seek_over then seek_over:kill() end
+                toggle_vs(false)
+            end
             original_speed = mp.get_property_number('speed', 1)
             mp.set_property_number('speed', original_speed * opt.speed)
         end
