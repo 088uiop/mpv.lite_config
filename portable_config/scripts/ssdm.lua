@@ -101,7 +101,7 @@ local function start_overlay()
     if overlay_started then return end
     mp.command_native_async({
         name = 'subprocess',
-        args = { 'danmaku_overlay', '--mpv-pid', tostring(pid), '--pipe', pipe_full, '--fps', '60' },
+        args = { 'danmaku_overlay', '--mpv-pid', tostring(pid), '--pipe', pipe_full, '--fps', mp.get_property('display_fps', '60') },
         detach = true
     })
     overlay_started = true
