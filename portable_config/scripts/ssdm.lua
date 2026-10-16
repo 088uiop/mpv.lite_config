@@ -101,7 +101,7 @@ local function start_overlay()
     if overlay_started then return end
     mp.command_native_async({
         name = 'subprocess',
-        args = { 'danmaku_overlay', '--mpv-pid', tostring(pid), '--pipe', pipe_full, '--fps', mp.get_property('display_fps', '60') },
+        args = { 'danmaku_overlay', '--mpv-pid', tostring(pid), '--pipe', pipe_full, '--fps', tostring(math.ceil(mp.get_property('display_fps', 60))) },
         detach = true
     })
     overlay_started = true
@@ -157,7 +157,7 @@ local function visibility_sync(init)
     if form == 'osd' then
         mp.commandv('script-message-to', 'uosc_danmaku', 'ssdm_command', 'showset', tostring(show_danmaku))
     elseif form == 'sub' then
-        mp.set_property('secondary-sub-ass-override', 'yes')
+        mp.set_property('secondary-sub-ass-override', 'scale')
         mp.set_property_bool('secondary-sub-visibility', show_danmaku)
     elseif form == 'overlay' then
         overlay_visiblility()
@@ -405,6 +405,7 @@ mp.register_script_message('ssdm_command', function(fun, arg) ssdm_funs[fun](arg
     mp.register_event('file-loaded', function()
         danmaku_loaded = false
         ass_loaded = false
+        mp.set_property('secondary-sid', 'no')
         if not show_danmaku or form == 'osd' then return end
         mp.commandv('script-message-to', 'uosc_danmaku', 'ssdm_command', 'load')
     end)
