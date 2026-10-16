@@ -3,7 +3,6 @@ local utils = require 'mp.utils'
 
 local sid = nil
 local overlay_pipe = nil
-local overlay_started = false
 local overlay_connected = false
 local overlay_hdr = false
 local pad = false
@@ -28,31 +27,16 @@ local function overlay_connect()
     return true
 end
 
-local function overlay_disconnect()
-    if overlay_pipe then pcall(function() overlay_pipe:close() end) end
-    overlay_pipe = nil
-    overlay_connected = false
-end
-
 local function overlay_send(json)
     if not overlay_connected or not overlay_pipe then return false end
     local data = json .. '\n'
-    local ok = overlay_pipe:write(data)
-    if not ok then
-        overlay_disconnect()
-        return false
-    end
-    local fok = overlay_pipe:flush()
-    if not fok then
-        overlay_disconnect()
-        return false
-    end
-    return true
+    overlay_pipe:write(data)
+    overlay_pipe:flush()
 end
 
 local function overlay_sync(name, value)
     if not overlay_connected then return end
-    return overlay_send(string.format(
+    overlay_send(string.format(
         '{"type":"sync","time_pos":%.3f,"paused":%s,"speed":%.3f}',
         name == 'time-pos' and value or mp.get_property_number('time-pos', 0),
         name == 'pause' and value or mp.get_property_bool('pause', false),
@@ -91,20 +75,17 @@ local function overlay_clear_danmaku()
 end
 
 local function overlay_shutdown()
-    if not overlay_started then return end
+    if not overlay_connected then return end
     overlay_send('{"type":"shutdown"}')
-    overlay_started = false
     overlay_connected = false
 end
 
 local function start_overlay()
-    if overlay_started then return end
     mp.command_native_async({
         name = 'subprocess',
-        args = { 'danmaku_overlay', '--mpv-pid', tostring(pid), '--pipe', pipe_full, '--fps', tostring(math.ceil(mp.get_property('display_fps', 60))) },
+        args = { 'danmaku_overlay', '--mpv-pid', tostring(pid), '--pipe', pipe_full, '--fps', mp.get_property('display-fps', '60') },
         detach = true
     })
-    overlay_started = true
     local tries = 0
     local function tc()
         if overlay_connect() then
@@ -117,8 +98,6 @@ local function start_overlay()
             mp.add_timeout(0.2, tc)
         else
             mp.msg.error('overlay 连接超时')
-            overlay_started = false
-            return
         end
         tries = tries + 1
     end
@@ -390,7 +369,7 @@ mp.register_script_message('ssdm_command', function(fun, arg) ssdm_funs[fun](arg
     mp.set_property_native('user-data/ssdm-form', form)
     mp.set_property_native('user-data/ssdm-peak', overlay_peak)
     mp.set_property_native('user-data/ssdm-visibility', show_danmaku)
-    start_overlay()
+    mp.add_timeout(1, start_overlay)
     visibility_sync(true)
     mp.commandv('script-message-to', 'uosc', 'set', 'ssdm_show_danmaku', show_danmaku and 'on' or 'off')
     mp.observe_property('osd-dimensions', 'native', smart_pad)
@@ -398,7 +377,7 @@ mp.register_script_message('ssdm_command', function(fun, arg) ssdm_funs[fun](arg
     mp.observe_property('speed', 'number', overlay_sync)
     mp.observe_property('seeking', 'bool', overlay_sync)
     mp.observe_property('video-target-params', 'native', function(_, vtp)
-        if not vtp or (vtp.gamma == 'pq') == overlay_hdr or not overlay_connected then return end
+        if not vtp or (vtp.gamma == 'pq') == overlay_hdr then return end
         overlay_hdr = vtp.gamma == 'pq'
         overlay_hdr_mode()
     end)
