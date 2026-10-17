@@ -242,7 +242,7 @@ def DRBA(
             h_in=input.height,
             be=be,
             gpu=gpu,
-            static=True if be == "trt_rtx" else static,
+            static=static,
         ),
     )
     out = vs.core.resize.Bilinear(

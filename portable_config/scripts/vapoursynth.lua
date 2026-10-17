@@ -53,7 +53,7 @@ local vs = {
                 gpu = '0',
                 precision = '16',
             },
-            static = { ['"trt"'] = false }
+            static = { ['"trt"'] = false, ['"trt_rtx"'] = false }
         },
         realesrgan = {
             label = 'RealESRGAN',
@@ -253,7 +253,7 @@ local settings_menu = {
                     items = {
                         { title = 'DML', value = 'drba: be "ort_dml" over' },
                         { title = 'TRT', value = 'drba: be "trt" over', actions = { { name = 'toggle_static', icon = 'toggle_off', label = '静态引擎开关' } } },
-                        { title = 'TRT_RTX', value = 'drba: be "trt_rtx" over', hint = '此处仅静态引擎可用' },
+                        { title = 'TRT_RTX', value = 'drba: be "trt_rtx" over', actions = { { name = 'toggle_static', icon = 'toggle_off', label = '静态引擎开关' } } },
                         { title = 'MIGX', value = 'drba: be "migx" over' }
                     }
                 },
@@ -476,6 +476,13 @@ local function update(no_osd, fin)
     local mis = { 'svp', 'rife', 'drba', 'realesrgan', 'uai' }
     local bis = { '"dml"', '"trt"', '"trt_rtx"' }
     for i, setting in ipairs(settings_menu.items) do
+        if i == 2 then
+            local trt_rtx_unavailable = vs.modes.rife.settings.model == '46'
+            setting.items[2].items[3].muted = trt_rtx_unavailable
+            setting.items[2].items[3].selectable = not trt_rtx_unavailable
+            setting.items[2].items[3].hint = trt_rtx_unavailable and '当前模型不支持该后端' or ''
+            if trt_rtx_unavailable and vs.modes.rife.settings.be == '"trt_rtx"' then vs.modes.rife.settings.be = '"trt"' end
+        end
         for _, option in ipairs(setting.items) do
             for j, item in ipairs(option.items) do
                 local active = true
@@ -651,6 +658,7 @@ local function toggle_preset()
 end
 
 local function toggle_static(mode, be)
+    for i = 1, #vs.state do mp.commandv('vf', 'remove', '@VS' .. i) end
     vs.modes[mode].static[be] = not vs.modes[mode].static[be]
     update(true)
 end
