@@ -536,10 +536,10 @@ mp.register_idle(watch_property_changes)
 
 local function init(_, loaded)
     if not loaded then return end
-    state.auto_run = not mp.get_property_bool('user-data/thumbfast-off', state.auto_run)
-    state.hwdec = not mp.get_property_bool('user-data/thumbfast-hw-off', state.hwdec)
-    mp.set_property_bool('user-data/thumbfast-off', not state.auto_run)
-    mp.set_property_bool('user-data/thumbfast-hw-off', not state.hwdec)
+    state.auto_run = not mp.get_property_native('user-data/thumbfast-off', not state.auto_run)
+    state.hwdec = not mp.get_property_native('user-data/thumbfast-hw-off', not state.hwdec)
+    mp.set_property_native('user-data/thumbfast-off', not state.auto_run)
+    mp.set_property_native('user-data/thumbfast-hw-off', not state.hwdec)
     mp.add_key_binding(nil, 'thumb_restart', function()
         if not state.auto_run then return end
         clear_state()

@@ -668,7 +668,7 @@ local function init(_, loaded)
     local vspipe = io.open(mp.command_native({ 'expand-path', '~~/../VSPipe.exe' }))
     local vs_checked = vspipe ~= nil
     if vspipe then vspipe:close() end
-    mp.set_property_bool('user-data/vs_checked', vs_checked)
+    mp.set_property_native('user-data/vs_checked', vs_checked)
     if not vs_checked then
         mp.msg.warn('未检测到VapourSynth，VS相关功能已禁用')
         mp.unobserve_property(init)
