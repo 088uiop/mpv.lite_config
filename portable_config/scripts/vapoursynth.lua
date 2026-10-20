@@ -476,13 +476,6 @@ local function update(no_osd, fin)
     local mis = { 'svp', 'rife', 'drba', 'realesrgan', 'uai' }
     local bis = { '"dml"', '"trt"', '"trt_rtx"' }
     for i, setting in ipairs(settings_menu.items) do
-        if i == 2 then
-            local trt_rtx_unavailable = vs.modes.rife.settings.model == '46'
-            setting.items[2].items[3].muted = trt_rtx_unavailable
-            setting.items[2].items[3].selectable = not trt_rtx_unavailable
-            setting.items[2].items[3].hint = trt_rtx_unavailable and '当前模型不支持该后端' or ''
-            if trt_rtx_unavailable and vs.modes.rife.settings.be == '"trt_rtx"' then vs.modes.rife.settings.be = '"trt"' end
-        end
         for _, option in ipairs(setting.items) do
             for j, item in ipairs(option.items) do
                 local active = true
