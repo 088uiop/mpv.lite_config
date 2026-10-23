@@ -142,11 +142,6 @@ def get_backend(
             use_cuda_graph=True,
             device_id=gpu,
         ),
-        "migx": lambda: vsmlrt.BackendV2.MIGX(
-            num_streams=2,
-            exhaustive_tune=False,
-            device_id=0,
-        ),
     }
     return backend_configs[be]()
 
