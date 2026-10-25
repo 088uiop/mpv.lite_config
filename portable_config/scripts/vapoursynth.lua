@@ -79,7 +79,7 @@ local vs = {
                 wpre = '1920',
                 hpre = '1080',
                 be = '"ort_dml"',
-                model = '"HFA2kCompact_x2"',
+                model = '"HFA2kSpan_x2"',
                 wlim = '1920',
                 hlim = '1080',
                 wmax = '3840',
@@ -390,10 +390,10 @@ local settings_menu = {
                 {
                     title = '模型',
                     items = {
-                        { title = 'HFA2kCompact_x2',        value = 'uai: model "HFA2kCompact_x2" over' },
                         { title = 'HFA2kSpan_x2',           value = 'uai: model "HFA2kSpan_x2" over' },
+                        { title = 'HFA2kCompact_x2',        value = 'uai: model "HFA2kCompact_x2" over' },
                         { title = 'ClearRealityV1_x4',      value = 'uai: model "ClearRealityV1_x4" over' },
-                        { title = 'ClearRealityV1_Soft_x4', value = 'uai: model "ClearRealityV1_Soft_x4" over' }
+                        { title = 'OpenProteus_Compact_x2', value = 'uai: model "OpenProteus_Compact_x2" over' }
                     }
                 },
                 {
