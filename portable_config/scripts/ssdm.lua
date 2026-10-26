@@ -4,15 +4,15 @@ local utils = require 'mp.utils'
 local sid = nil
 local overlay_pipe = nil
 local overlay_connected = false
-local overlay_hdr = false
 local pad = false
 local pading = false
 local ass_loaded = false
 local show_danmaku = false
 local danmaku_loaded = false
+local danmaku_hdr_mode = false
+local danmaku_hdr_peak = 400
 local danmaku_delay = '0'
 local form = 'osd'
-local overlay_peak = 'sdr'
 local pid = utils.getpid()
 local pipe_full = string.format('//./pipe/danmaku_overlay_%d', pid)
 local ass_path = os.getenv('TEMP') .. '/ssdm-danmaku-' .. pid .. '.ass'
@@ -61,12 +61,12 @@ end
 
 local function overlay_hdr_mode()
     if not overlay_connected then return end
-    overlay_send(string.format('{"type":"set_hdr","enabled":%s}', overlay_hdr and overlay_peak ~= "sdr"))
+    overlay_send(string.format('{"type":"set_hdr","enabled":%s}', danmaku_hdr_mode))
 end
 
 local function overlay_hdr_peak()
     if not overlay_connected then return end
-    overlay_send(string.format('{"type":"set_hdr_peak","hdr_peak":%.1f}', tonumber(overlay_peak) or 400))
+    overlay_send(string.format('{"type":"set_hdr_peak","hdr_peak":%.1f}', danmaku_hdr_peak))
 end
 
 local function overlay_clear_danmaku()
@@ -102,13 +102,6 @@ local function start_overlay()
         tries = tries + 1
     end
     tc()
-end
-
-local function set_peak(peak)
-    overlay_peak = peak
-    mp.set_property_native('user-data/ssdm-peak', overlay_peak)
-    overlay_hdr_mode()
-    overlay_hdr_peak()
 end
 
 local function add_delay(value, no_osd)
@@ -363,11 +356,9 @@ mp.register_script_message('ssdm_command', function(fun, arg) ssdm_funs[fun](arg
     end
     pad = mp.get_property_native('user-data/ssdm-pad', pad)
     form = mp.get_property_native('user-data/ssdm-form', form)
-    overlay_peak = mp.get_property_native('user-data/ssdm-peak', overlay_peak)
     show_danmaku = mp.get_property_native('user-data/ssdm-visibility', show_danmaku)
     mp.set_property_native('user-data/ssdm-pad', pad)
     mp.set_property_native('user-data/ssdm-form', form)
-    mp.set_property_native('user-data/ssdm-peak', overlay_peak)
     mp.set_property_native('user-data/ssdm-visibility', show_danmaku)
     mp.add_timeout(1, start_overlay)
     visibility_sync(true)
@@ -377,9 +368,15 @@ mp.register_script_message('ssdm_command', function(fun, arg) ssdm_funs[fun](arg
     mp.observe_property('speed', 'number', overlay_sync)
     mp.observe_property('seeking', 'bool', overlay_sync)
     mp.observe_property('video-target-params', 'native', function(_, vtp)
-        if not vtp or (vtp.gamma == 'pq') == overlay_hdr then return end
-        overlay_hdr = vtp.gamma == 'pq'
-        overlay_hdr_mode()
+        if not vtp then return end
+        if danmaku_hdr_mode ~= (vtp.gamma == 'pq') then
+            danmaku_hdr_mode = vtp.gamma == 'pq'
+            overlay_hdr_mode()
+        end
+        if danmaku_hdr_mode and danmaku_hdr_peak ~= vtp['max-luma'] then
+            danmaku_hdr_peak = vtp['max-luma']
+            overlay_hdr_peak()
+        end
     end)
     mp.register_event('file-loaded', function()
         danmaku_loaded = false
@@ -397,7 +394,6 @@ mp.register_script_message('ssdm_command', function(fun, arg) ssdm_funs[fun](arg
         os.remove(ass_path)
     end)
     mp.register_script_message('set', toggle_visibility)
-    mp.register_script_message('set_ssdm_peak', set_peak)
     mp.register_script_message('add_ssdm_delay', add_delay)
     mp.register_script_message('set_ssdm_form', toggle_form)
     mp.register_script_message('load_danmaku', load_danmaku)
