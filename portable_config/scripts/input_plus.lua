@@ -162,6 +162,7 @@ local function init(_, loaded)
                 if not seeking then seek_skip = false end
                 return
             end
+            if seek_over then seek_over:kill() end
             if seeking then toggle_vs(false) end
             if seek_over then seek_over:kill() end
             seek_over = mp.add_timeout(1, function()
