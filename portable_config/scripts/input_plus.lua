@@ -163,12 +163,14 @@ local function init(_, loaded)
                 return
             end
             if seek_over then seek_over:kill() end
-            if seeking then toggle_vs(false) end
-            if seek_over then seek_over:kill() end
-            seek_over = mp.add_timeout(1, function()
-                if mp.get_property_bool('pause') then seek_skip = true end
-                toggle_vs(true)
-            end)
+            if seeking then
+                toggle_vs(false)
+            else
+                seek_over = mp.add_timeout(1, function()
+                    if mp.get_property_bool('pause') then seek_skip = true end
+                    toggle_vs(true)
+                end)
+            end
         end)
     end
     mp.observe_property('chapter-metadata/TITLE', 'string', chap_skip_check)
